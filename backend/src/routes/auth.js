@@ -2,6 +2,7 @@ import express from 'express';
 import User from '../models/User.js';
 import AvailableLoyaltyId from '../models/AvailableLoyaltyId.js';
 import { generateToken, protect } from '../middleware/auth.js';
+import { createOdooPartner, createOdooLoyaltyCard } from '../services/odooSync.js';
 
 const router = express.Router();
 
@@ -39,12 +40,43 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    // Step 1: Create partner in Odoo
+    let odooPartnerId;
+    let odooCardId;
+    let odooLoyaltyCode;
+    
+    try {
+      console.log(`[Registration] Creating Odoo partner for ${name} (${email})`);
+      odooPartnerId = await createOdooPartner(
+        availableLoyaltyId.partnerName || name,
+        email
+      );
+      
+      // Step 2: Create loyalty card in Odoo
+      console.log(`[Registration] Creating Odoo loyalty card for partner ID: ${odooPartnerId}`);
+      const loyaltyCardData = await createOdooLoyaltyCard(odooPartnerId);
+      odooCardId = loyaltyCardData.id;
+      odooLoyaltyCode = loyaltyCardData.code;
+      
+      console.log(`[Registration] Odoo integration successful:`, {
+        partnerId: odooPartnerId,
+        cardId: odooCardId,
+        code: odooLoyaltyCode
+      });
+    } catch (odooError) {
+      console.error('[Registration] Odoo integration failed:', odooError.message);
+      // Don't fail registration if Odoo fails, but log the error
+      // Registration can proceed without Odoo sync (can be synced later)
+      console.warn('[Registration] Proceeding with registration despite Odoo error');
+    }
+
     // Create user with loyalty ID and points from CSV if available
     const user = await User.create({
       name: availableLoyaltyId.partnerName || name, // Use partner name from CSV if available, otherwise use provided name
       email,
       password,
-      loyaltyId: availableLoyaltyId.loyaltyId,
+      loyaltyId: odooLoyaltyCode || availableLoyaltyId.loyaltyId, // Use Odoo code if available, otherwise use CSV loyalty ID
+      odooCardId: odooCardId || undefined, // Store Odoo card ID if available
       esproCoins: availableLoyaltyId.points || 0,
       lifetimeEsproCoins: availableLoyaltyId.points || 0, // Set initial lifetime coins to points from CSV
     });

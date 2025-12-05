@@ -180,6 +180,272 @@ export async function ensureAuthenticated() {
 }
 
 /**
+ * Create a partner (customer) in Odoo
+ * @param {string} name - Partner name
+ * @param {string} email - Partner email
+ * @returns {Promise<number>} Partner ID
+ */
+export async function createOdooPartner(name, email) {
+  try {
+    // Ensure we're authenticated
+    const currentSessionId = await ensureAuthenticated();
+    
+    console.log(`[Odoo Sync] Creating partner in Odoo: ${name} (${email})`);
+    
+    // Generate a unique ID for this request
+    const requestId = Math.floor(Math.random() * 1000) + 1;
+    
+    const payload = {
+      id: requestId,
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        model: "res.partner",
+        method: "web_save",
+        args: [
+          [],
+          {
+            partner_gid: 0,
+            additional_info: false,
+            image_1920: false,
+            company_type: "person",
+            name: name,
+            parent_id: false,
+            company_name: false,
+            type: "contact",
+            street: false,
+            street2: false,
+            city: false,
+            state_id: false,
+            zip: false,
+            country_id: false,
+            vat: false,
+            vies_valid: false,
+            first_name: false,
+            middle_name: false,
+            last_name: false,
+            function: false,
+            phone: false,
+            mobile: false,
+            email: email,
+            website: false,
+            title: false,
+            lang: "en_US",
+            category_id: [],
+            child_ids: [],
+            user_id: false,
+            property_payment_term_id: false,
+            property_inbound_payment_method_line_id: false,
+            property_product_pricelist: 1,
+            property_supplier_payment_term_id: false,
+            property_outbound_payment_method_line_id: false,
+            barcode: false,
+            property_account_position_id: false,
+            company_registry: false,
+            ref: false,
+            company_id: false,
+            industry_id: false,
+            property_stock_customer: 5,
+            property_stock_supplier: 4,
+            bank_ids: [],
+            invoice_sending_method: false,
+            invoice_edi_format: false,
+            invoice_template_pdf_report_id: false,
+            peppol_eas: false,
+            peppol_endpoint: false,
+            is_coa_installed: true,
+            property_account_receivable_id: 51,
+            property_account_payable_id: 81,
+            use_partner_credit_limit: false,
+            credit_limit: 0,
+            autopost_bills: "ask",
+            ignore_abnormal_invoice_amount: false,
+            ignore_abnormal_invoice_date: false,
+            comment: false,
+            partner_longitude: 0,
+            partner_latitude: 0
+          }
+        ],
+        kwargs: {
+          context: {
+            lang: "en_US",
+            tz: "Asia/Manila",
+            uid: 2,
+            allowed_company_ids: [1],
+            active_model: "loyalty.program",
+            active_id: 24,
+            active_ids: [24],
+            program_type: "loyalty",
+            program_item_name: "Loyalty Cards"
+          },
+          specification: {}
+        }
+      }
+    };
+    
+    const apiCookieString = sessionCookies || `frontend_lang=en_US; cids=1; session_id=${currentSessionId}; tz=Asia/Manila`;
+    
+    const response = await client.post('/web/dataset/call_kw/res.partner/web_save', payload, {
+      headers: {
+        'Cookie': apiCookieString,
+        'Referer': `${ODOO_URL}/odoo/action-425/24/action-424/new`,
+      },
+    });
+    
+    if (response.data.error) {
+      console.error('[Odoo Sync] Error creating partner:', response.data.error);
+      throw new Error(response.data.error.message || 'Failed to create partner in Odoo');
+    }
+    
+    // Extract partner ID from response
+    // Response format: { "jsonrpc": "2.0", "id": 39, "result": [{ "id": 2876 }] }
+    const partnerId = response.data.result?.[0]?.id;
+    
+    if (!partnerId) {
+      console.error('[Odoo Sync] No partner ID in response:', response.data);
+      throw new Error('Failed to get partner ID from Odoo response');
+    }
+    
+    console.log(`[Odoo Sync] Partner created successfully with ID: ${partnerId}`);
+    return partnerId;
+  } catch (error) {
+    console.error('[Odoo Sync] Error creating partner:', error.message);
+    if (error.response) {
+      console.error('[Odoo Sync] Response status:', error.response.status);
+      console.error('[Odoo Sync] Response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    throw error;
+  }
+}
+
+/**
+ * Create a loyalty card in Odoo
+ * @param {number} partnerId - Partner ID from Odoo
+ * @returns {Promise<{id: number, code: string, partnerId: number}>} Loyalty card data
+ */
+export async function createOdooLoyaltyCard(partnerId) {
+  try {
+    // Ensure we're authenticated
+    const currentSessionId = await ensureAuthenticated();
+    
+    console.log(`[Odoo Sync] Creating loyalty card in Odoo for partner ID: ${partnerId}`);
+    
+    // Generate a unique ID for this request
+    const requestId = Math.floor(Math.random() * 1000) + 1;
+    
+    const payload = {
+      id: requestId,
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        model: "loyalty.card",
+        method: "web_save",
+        args: [
+          [],
+          {
+            expiration_date: false,
+            partner_id: partnerId
+          }
+        ],
+        kwargs: {
+          context: {
+            lang: "en_US",
+            tz: "Asia/Manila",
+            uid: 2,
+            allowed_company_ids: [1],
+            active_model: "loyalty.program",
+            active_id: 24,
+            active_ids: [24],
+            program_type: "loyalty",
+            program_item_name: "Loyalty Cards",
+            default_program_id: 24,
+            default_mode: "anonymous"
+          },
+          specification: {
+            code: {},
+            expiration_date: {},
+            partner_id: {
+              fields: {
+                display_name: {}
+              }
+            },
+            order_id: {
+              fields: {
+                display_name: {}
+              }
+            },
+            source_pos_order_id: {
+              fields: {
+                display_name: {}
+              }
+            },
+            points_display: {},
+            history_ids: {
+              fields: {
+                description: {},
+                order_id: {
+                  fields: {
+                    display_name: {}
+                  }
+                },
+                create_date: {},
+                issued: {},
+                used: {}
+              },
+              limit: 40,
+              order: ""
+            },
+            display_name: {}
+          }
+        }
+      }
+    };
+    
+    const apiCookieString = sessionCookies || `frontend_lang=en_US; cids=1; session_id=${currentSessionId}; tz=Asia/Manila`;
+    
+    const response = await client.post('/web/dataset/call_kw/loyalty.card/web_save', payload, {
+      headers: {
+        'Cookie': apiCookieString,
+        'Referer': `${ODOO_URL}/odoo/action-425/24/action-424/new`,
+      },
+    });
+    
+    if (response.data.error) {
+      console.error('[Odoo Sync] Error creating loyalty card:', response.data.error);
+      throw new Error(response.data.error.message || 'Failed to create loyalty card in Odoo');
+    }
+    
+    // Extract loyalty card data from response
+    // Response format: { "jsonrpc": "2.0", "id": 40, "result": [{ "id": 868, "code": "0442-a494-4b47", ... }] }
+    const cardData = response.data.result?.[0];
+    
+    if (!cardData || !cardData.id) {
+      console.error('[Odoo Sync] No loyalty card data in response:', response.data);
+      throw new Error('Failed to get loyalty card data from Odoo response');
+    }
+    
+    console.log(`[Odoo Sync] Loyalty card created successfully:`, {
+      id: cardData.id,
+      code: cardData.code,
+      partnerId: cardData.partner_id?.id || partnerId
+    });
+    
+    return {
+      id: cardData.id,
+      code: cardData.code,
+      partnerId: cardData.partner_id?.id || partnerId
+    };
+  } catch (error) {
+    console.error('[Odoo Sync] Error creating loyalty card:', error.message);
+    if (error.response) {
+      console.error('[Odoo Sync] Response status:', error.response.status);
+      console.error('[Odoo Sync] Response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    throw error;
+  }
+}
+
+/**
  * Fetch loyalty cards from Odoo
  */
 async function fetchLoyaltyCards() {
