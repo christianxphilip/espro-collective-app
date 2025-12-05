@@ -5,7 +5,6 @@ services:
     env: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: starter
     region: oregon
     branch: master
     envVars:
@@ -31,7 +30,6 @@ services:
     env: docker
     dockerfilePath: ./backend/Dockerfile.worker
     dockerContext: ./backend
-    plan: starter
     region: oregon
     branch: master
     envVars:
@@ -50,7 +48,6 @@ services:
     env: docker
     dockerfilePath: ./apps/customer-portal/Dockerfile
     dockerContext: ./apps/customer-portal
-    plan: starter
     region: oregon
     branch: master
 
@@ -60,7 +57,6 @@ services:
     env: docker
     dockerfilePath: ./apps/admin-portal/Dockerfile
     dockerContext: ./apps/admin-portal
-    plan: starter
     region: oregon
     branch: master
 
