@@ -247,8 +247,26 @@ export default function Collections() {
                       {isActive ? 'Active' : 'Tap to activate'}
                     </div>
                   ) : (
-                    <div className="text-xs text-gray-500 mt-1">
-                      {formatEsproCoinsDisplay(collectible.lifetimeEsproCoinsRequired)} total earned espro coins needed
+                    <div className="mt-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-gray-600">
+                          {formatEsproCoinsDisplay(user?.lifetimeEsproCoins || 0)} / {formatEsproCoinsDisplay(collectible.lifetimeEsproCoinsRequired)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {Math.min(((user?.lifetimeEsproCoins || 0) / collectible.lifetimeEsproCoinsRequired) * 100, 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-espro-orange to-espro-teal rounded-full transition-all"
+                          style={{ 
+                            width: `${Math.min(((user?.lifetimeEsproCoins || 0) / collectible.lifetimeEsproCoinsRequired) * 100, 100)}%` 
+                          }}
+                        />
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {formatEsproCoinsDisplay(Math.max(0, collectible.lifetimeEsproCoinsRequired - (user?.lifetimeEsproCoins || 0)))} more needed
+                      </div>
                     </div>
                   )}
                 </div>
