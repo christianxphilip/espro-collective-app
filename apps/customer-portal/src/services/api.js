@@ -95,6 +95,7 @@ export const customerAPI = {
   getPromotions: () => api.get('/customer/promotions'),
   getClaims: () => api.get('/customer/claims'),
   getVouchers: () => api.get('/customer/vouchers'),
+  getPointsHistory: (params) => api.get('/customer/points-history', { params }),
 };
 
 // Rewards API

@@ -11,6 +11,7 @@ import Profile from './pages/Profile';
 import ClaimHistory from './pages/ClaimHistory';
 import QRCodeView from './pages/QRCodeView';
 import MyVouchers from './pages/MyVouchers';
+import PointsHistory from './pages/PointsHistory';
 
 function PrivateRoute({ children }) {
   const { user, token, fetchUser } = useAuthStore();
@@ -127,6 +128,14 @@ function App() {
                   element={
                     <PrivateRoute>
                       <MyVouchers />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/points-history"
+                  element={
+                    <PrivateRoute>
+                      <PointsHistory />
                     </PrivateRoute>
                   }
                 />

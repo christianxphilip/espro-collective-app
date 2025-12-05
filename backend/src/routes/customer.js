@@ -5,6 +5,7 @@ import Reward from '../models/Reward.js';
 import Claim from '../models/Claim.js';
 import Collectible from '../models/Collectible.js';
 import Promotion from '../models/Promotion.js';
+import PointsTransaction from '../models/PointsTransaction.js';
 
 const router = express.Router();
 
@@ -243,6 +244,44 @@ router.get('/vouchers', async (req, res) => {
         available,
         used,
         total: vouchers.length,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// @route   GET /api/customer/points-history
+// @desc    Get user's points transaction history
+// @access  Private
+router.get('/points-history', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const transactions = await PointsTransaction.find({ user: req.user._id })
+      .populate({
+        path: 'referenceId',
+        select: 'title name',
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await PointsTransaction.countDocuments({ user: req.user._id });
+
+    res.json({
+      success: true,
+      transactions,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {

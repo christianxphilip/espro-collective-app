@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import User from '../models/User.js';
+import PointsTransaction from '../models/PointsTransaction.js';
 
 const ODOO_URL = 'https://espressionistpos.odoo.com';
 const ODOO_USERNAME = process.env.ODOO_USERNAME || 'espressionist.pos@gmail.com';
@@ -627,12 +628,12 @@ async function fetchLoyaltyCardHistoryForTotal(odooCardId) {
     if (response.data.error) {
       const errorMsg = response.data.error.message || JSON.stringify(response.data.error);
       console.warn(`[Odoo Sync] Error fetching history for card ${odooCardId}, using current balance as total:`, errorMsg);
-      return { totalEarned: 0 };
+      return { totalEarned: 0, history: [] };
     }
     
     if (!response.data.result || !response.data.result[0]) {
       console.warn(`[Odoo Sync] No history found for card ID ${odooCardId}`);
-      return { totalEarned: 0 };
+      return { totalEarned: 0, history: [] };
     }
     
     const cardData = response.data.result[0];
@@ -645,10 +646,10 @@ async function fetchLoyaltyCardHistoryForTotal(odooCardId) {
     }, 0);
     
     console.log(`[Odoo Sync] Calculated total earned for card ${odooCardId}: ${totalEarned} (sum of ${history.length} history entries)`);
-    return { totalEarned };
+    return { totalEarned, history };
   } catch (error) {
     console.warn(`[Odoo Sync] Error fetching history for card ${odooCardId}, using current balance as total:`, error.message);
-    return { totalEarned: 0 };
+    return { totalEarned: 0, history: [] };
   }
 }
 
@@ -703,15 +704,17 @@ export async function syncLoyaltyCards() {
         // Update user's espro coins
         const previousBalance = user.esproCoins;
         const previousLifetime = user.lifetimeEsproCoins;
+        const balanceDifference = points - previousBalance;
         user.esproCoins = points;
         
         // Store Odoo card ID
+        let historyData = null;
         if (odooCardId) {
           user.odooCardId = odooCardId;
           
           // Fetch history to calculate total earned points (sum of all issued points)
           try {
-            const historyData = await fetchLoyaltyCardHistoryForTotal(odooCardId);
+            historyData = await fetchLoyaltyCardHistoryForTotal(odooCardId);
             if (historyData.totalEarned > 0) {
               user.lifetimeEsproCoins = historyData.totalEarned;
               console.log(`[Odoo Sync] Set total earned for ${loyaltyId}: ${historyData.totalEarned} (sum of all issued points)`);
@@ -736,6 +739,97 @@ export async function syncLoyaltyCards() {
         }
         
         await user.save();
+        
+        // Create transaction records from Odoo history if available
+        // Only create records for "issued" (earned) points, not "used" points
+        // "Used" points are tracked separately when customers redeem rewards in the app
+        if (odooCardId && historyData && historyData.history && Array.isArray(historyData.history) && historyData.history.length > 0) {
+          try {
+              // Process history entries in chronological order
+              // Calculate running balance starting from 0
+              let runningBalance = 0;
+              let transactionsCreated = 0;
+              
+              console.log(`[Odoo Sync] Processing ${historyData.history.length} history entries for ${loyaltyId} (only issued points)`);
+              
+              for (const entry of historyData.history) {
+                const issued = entry.issued ? parseFloat(entry.issued) : 0;
+                const used = entry.used ? parseFloat(entry.used) : 0;
+                const entryDate = entry.create_date ? new Date(entry.create_date) : new Date();
+                
+                // Update running balance for both issued and used (for balanceAfter calculation)
+                if (issued > 0) {
+                  runningBalance += issued;
+                }
+                if (used > 0) {
+                  runningBalance -= used;
+                }
+                
+                // Only create transaction record for issued (earned) points
+                if (issued > 0) {
+                  // Use upsert to avoid duplicates - match by user, type, amount, and timestamp
+                  await PointsTransaction.findOneAndUpdate(
+                    {
+                      user: user._id,
+                      type: 'earned',
+                      amount: issued,
+                      createdAt: {
+                        $gte: new Date(entryDate.getTime() - 60000), // Within 1 minute
+                        $lte: new Date(entryDate.getTime() + 60000),
+                      },
+                      referenceType: 'OdooSync',
+                    },
+                    {
+                      user: user._id,
+                      type: 'earned',
+                      amount: issued,
+                      description: entry.description || 'Points earned from purchase',
+                      referenceId: null,
+                      referenceType: 'OdooSync',
+                      balanceAfter: runningBalance, // Balance after this transaction
+                      createdAt: entryDate,
+                    },
+                    {
+                      upsert: true,
+                      new: true,
+                      setDefaultsOnInsert: true,
+                    }
+                  );
+                  transactionsCreated++;
+                  console.log(`[Odoo Sync] Upserted earned transaction: ${issued} points for ${loyaltyId} at ${entryDate.toISOString()}, balance after: ${runningBalance}`);
+                }
+                // Note: We skip creating records for "used" points from Odoo
+                // "Used" points are tracked when customers redeem rewards in the app
+              }
+              
+              console.log(`[Odoo Sync] Upserted ${transactionsCreated} earned transaction records from ${historyData.history.length} history entries for ${loyaltyId}`);
+          } catch (error) {
+            console.warn(`[Odoo Sync] Failed to create transaction records for ${loyaltyId}:`, error.message);
+            // Fallback: create transaction if balance increased
+            if (balanceDifference > 0) {
+              await PointsTransaction.create({
+                user: user._id,
+                type: 'earned',
+                amount: balanceDifference,
+                description: 'Points earned from purchase',
+                referenceId: null,
+                referenceType: 'OdooSync',
+                balanceAfter: points,
+              });
+            }
+          }
+        } else if (balanceDifference > 0) {
+          // No Odoo card ID, but balance increased - create transaction
+          await PointsTransaction.create({
+            user: user._id,
+            type: 'earned',
+            amount: balanceDifference,
+            description: 'Points earned from purchase',
+            referenceId: null,
+            referenceType: 'OdooSync',
+            balanceAfter: points,
+          });
+        }
         
         updated++;
         updates.push({

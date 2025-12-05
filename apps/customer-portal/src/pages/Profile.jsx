@@ -91,6 +91,23 @@ export default function Profile() {
           </div>
         </div>
 
+        <div
+          className="bg-white rounded-xl p-5 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate('/points-history')}
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="font-medium mb-1 text-gray-900">Points History</div>
+              <div className="text-sm text-gray-600">View earned and used points</div>
+            </div>
+            <div className="flex items-center justify-center">
+              <svg className="w-5 h-5 text-espro-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
         <button
           onClick={handleLogout}
           className="w-full bg-espro-orange text-white py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow mt-2"

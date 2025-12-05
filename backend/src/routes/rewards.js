@@ -4,6 +4,7 @@ import { protect, requireAdmin } from '../middleware/auth.js';
 import Reward from '../models/Reward.js';
 import Claim from '../models/Claim.js';
 import User from '../models/User.js';
+import PointsTransaction from '../models/PointsTransaction.js';
 import odooBalanceQueue from '../jobs/odooBalanceQueue.js';
 import multer from 'multer';
 import path from 'path';
@@ -323,7 +324,20 @@ router.post('/claim/:id', protect, async (req, res) => {
       }
     }
 
-    // Step 5: Update reward quantity (if not using voucher codes and not store-claimable)
+    // Step 5: Create transaction record for used points (if coins were deducted)
+    if (coinsDeducted > 0 && claim) {
+      await PointsTransaction.create({
+        user: userId,
+        type: 'used',
+        amount: coinsDeducted,
+        description: `Redeemed reward: ${reward.title}`,
+        referenceId: claim._id,
+        referenceType: 'Claim',
+        balanceAfter: updatedUser.esproCoins,
+      });
+    }
+
+    // Step 6: Update reward quantity (if not using voucher codes and not store-claimable)
     if (!reward.claimableAtStore && !hasVoucherCodes && reward.quantity !== -1 && reward.quantity > 0) {
       await Reward.updateOne(
         { _id: rewardId, quantity: { $gt: 0 } },
