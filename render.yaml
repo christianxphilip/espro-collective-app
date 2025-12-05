@@ -8,8 +8,6 @@ services:
     plan: starter
     region: oregon
     branch: main
-    buildCommand: ""
-    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -36,8 +34,6 @@ services:
     plan: starter
     region: oregon
     branch: main
-    buildCommand: ""
-    startCommand: node src/worker.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -57,8 +53,6 @@ services:
     plan: starter
     region: oregon
     branch: main
-    buildCommand: ""
-    startCommand: nginx -g 'daemon off;'
 
   # Admin Portal (Static Site)
   - type: web
@@ -69,6 +63,4 @@ services:
     plan: starter
     region: oregon
     branch: main
-    buildCommand: ""
-    startCommand: nginx -g 'daemon off;'
 
