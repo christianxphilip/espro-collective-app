@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html style="height: 100%;">
+    <head>
+        <meta charset="utf-8"/>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <title>Odoo</title>
+        <link type="image/x-icon" rel="shortcut icon" href="/web/static/img/favicon.ico"/>
+        <link rel="preload" href="/web/static/src/libs/fontawesome/fonts/fontawesome-webfont.woff2?v=4.7.0" as="font" crossorigin=""/>
+        <link type="text/css" rel="stylesheet" href="/web/assets/8607f12/web.assets_frontend.min.css"/>
+        <script id="web.layout.odooscript" type="text/javascript">
+            var odoo = {
+                csrf_token: "b601d8ba8265221193f857fefe828a66744eacado1796445693",
+                debug: "",
+            };
+        </script>
+        <script type="text/javascript">
+            odoo.__session_info__ = {"is_admin": false, "is_system": false, "is_public": true, "is_internal_user": false, "is_website_user": false, "uid": null, "is_frontend": true, "profile_session": null, "profile_collectors": null, "profile_params": null, "show_effect": true, "currencies": {"36": {"symbol": "\u20b1", "position": "after", "digits": [69, 2]}}, "quick_login": true, "bundle_params": {"lang": "en_US"}, "test_mode": false, "websocket_worker_version": "18.0-7", "translationURL": "/website/translations", "cache_hashes": {"translations": "da4e534e23d6f2e853a075b86ef4408881f77979"}};
+            if (!/(^|;\s)tz=/.test(document.cookie)) {
+                const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                document.cookie = `tz=${userTZ}; path=/`;
+            }
+        </script>
+        <script type="text/javascript" defer="defer" src="/web/assets/3e3e15e/web.assets_frontend_minimal.min.js" onerror="__odooAssetError=1"></script>
+        <script type="text/javascript" defer="defer" data-src="/web/assets/04991bb/web.assets_frontend_lazy.min.js" onerror="__odooAssetError=1"></script>
+        
+    </head>
+    <body class="o_home_menu_background">
+        <div id="wrapwrap" class="  ">
+            <a class="o_skip_to_content btn btn-primary rounded-0 visually-hidden-focusable position-absolute start-0" href="#wrap">Skip to Content</a>
+                <main>
+                    
+
+            <div class="container py-5">
+                <div style="max-width: 300px;" class="card border-0 mx-auto bg-100 rounded-0 shadow-sm bg-white o_database_list">
+                    <div class="card-body">
+                        <div class="text-center pb-3 border-bottom mb-4">
+                            <img alt="Logo" style="max-height:120px; max-width: 100%; width:auto" src="/web/binary/company_logo"/>
+                        </div>
+                        
+            <owl-component name="web.user_switch"></owl-component>
+            <form role="form" method="post" onsubmit="this.action = &#39;/web/login&#39; + location.hash" class="oe_login_form d-none" action="/web/login">
+                <input type="hidden" name="csrf_token" value="b601d8ba8265221193f857fefe828a66744eacado1796445693"/>
+
+
+                <div class="mb-3 field-login">
+                    <label for="login" class="form-label d-flex justify-content-between">Email</label>
+                    <input type="text" placeholder="Email" name="login" id="login" class="form-control" required="required" autocapitalize="off" autocomplete="username"/>
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label d-flex justify-content-between">Password
+                <a class="btn btn-link btn-sm" tabindex="1" href="/web/reset_password?redirect=%2Fodoo%2Faction-425%2F24%2Faction-424%2Faction_edit_dashboard%2F4%3F">Reset Password</a></label>
+                    <input type="password" placeholder="Password" name="password" id="password" class="form-control" required="required" autocomplete="current-password" maxlength="4096"/>
+                </div>
+
+
+                <div class="oe_login_buttons text-center gap-1 d-grid mb-1 pt-3">
+                    <button type="submit" class="btn btn-primary">Log in</button>
+                    <div class="o_login_auth"></div>
+                </div>
+                <p class="mt-2 text-center">
+                </p>
+
+                <input type="hidden" name="type" value="password"/>
+                <input type="hidden" name="redirect" value="/odoo/action-425/24/action-424/action_edit_dashboard/4?"/>
+            </form>
+        
+                        <div class="text-center small mt-4 pt-3 border-top">
+                            <a href="https://www.odoo.com?utm_source=db&amp;utm_medium=auth" target="_blank">Powered by <span>Odoo</span></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+                </main>
+                
+            </div>
+        </body>
+</html>

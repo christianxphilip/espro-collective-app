@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESPRO Collection App - Design Proposal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #fafafa;
+            color: #333333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1 {
+            color: #f66633;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        h2 {
+            color: #4b2e2b;
+            font-size: 1.8rem;
+            margin-top: 3rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f66633;
+        }
+        
+        h3 {
+            color: #3a878c;
+            font-size: 1.3rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .section {
+            background: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .color-palette {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+        }
+        
+        .color-box {
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .color-primary { background: #f66633; }
+        .color-secondary { background: #4b2e2b; }
+        .color-accent { background: #f5e9da; color: #333; }
+        .color-dark { background: #333333; }
+        .color-teal { background: #3a878c; }
+        
+        .mockup {
+            border: 2px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            background: #fafafa;
+        }
+        
+        .mobile-mockup {
+            max-width: 375px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 24px;
+            padding: 1rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        
+        .desktop-mockup {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .screen {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 1rem;
+            min-height: 600px;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .points-card {
+            background: linear-gradient(135deg, #f66633 0%, #ff8c64 100%);
+            border-radius: 16px;
+            padding: 2rem;
+            color: white;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(246, 102, 51, 0.3);
+        }
+        
+        .points-value {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        
+        .qr-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            margin: 1rem 0;
+        }
+        
+        .qr-placeholder {
+            width: 200px;
+            height: 200px;
+            background: #f5f5f5;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+        }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e5e5e5;
+            padding: 0.75rem;
+            display: flex;
+            justify-content: space-around;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.5rem;
+            color: #999;
+            font-size: 0.75rem;
+        }
+        
+        .nav-item.active {
+            color: #f66633;
+        }
+        
+        .nav-icon {
+            width: 24px;
+            height: 24px;
+            background: currentColor;
+            border-radius: 4px;
+            opacity: 0.3;
+        }
+        
+        .grid {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .collectible-card {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .collectible-unlocked {
+            background: linear-gradient(135deg, #f66633, #3a878c);
+        }
+        
+        .collectible-locked {
+            background: #e5e5e5;
+            filter: blur(4px);
+            opacity: 0.5;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e5e5e5;
+            padding: 1.5rem;
+            min-height: 100vh;
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+        }
+        
+        .sidebar-menu li {
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .sidebar-menu li:hover {
+            background: #f5e9da;
+        }
+        
+        .sidebar-menu li.active {
+            background: #f66633;
+            color: white;
+        }
+        
+        .content-area {
+            flex: 1;
+            padding: 2rem;
+        }
+        
+        .admin-layout {
+            display: flex;
+        }
+        
+        .table {
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .table-header {
+            background: #f5e9da;
+            padding: 1rem;
+            font-weight: bold;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+        
+        .table-row {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #f66633;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #e55a28;
+        }
+        
+        .banner-carousel {
+            background: linear-gradient(135deg, #3a878c, #f66633);
+            border-radius: 12px;
+            padding: 2rem;
+            color: white;
+            margin: 1rem 0;
+            min-height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .badge-success {
+            background: #dcfce7;
+            color: #15803d;
+        }
+        
+        .badge-locked {
+            background: #e5e5e5;
+            color: #666;
+        }
+        
+        ul {
+            margin-left: 1.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        li {
+            margin: 0.5rem 0;
+        }
+        
+        .note {
+            background: #f5e9da;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #f66633;
+            margin: 1rem 0;
+        }
+        
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ESPRO Collection App - Design Proposal</h1>
+        <p style="color: #666; margin-bottom: 2rem;">MVP Design Mockups for Customer Portal (PWA) & Admin Portal (Web)</p>
+        
+        <!-- Color Palette -->
+        <div class="section">
+            <h2>Brand Color Palette</h2>
+            <div class="color-palette">
+                <div class="color-box color-primary">Primary<br>#f66633</div>
+                <div class="color-box color-secondary">Secondary<br>#4b2e2b</div>
+                <div class="color-box color-accent">Accent<br>#f5e9da</div>
+                <div class="color-box color-dark">Dark<br>#333333</div>
+                <div class="color-box color-teal">Teal<br>#3a878c</div>
+            </div>
+            <p style="margin-top: 1rem; color: #666;">These colors will be used throughout both portals. Primary (#f66633) for CTAs and highlights, Secondary (#4b2e2b) for text, Accent (#f5e9da) for backgrounds, Dark (#333333) for primary text, and Teal (#3a878c) for secondary accents.</p>
+        </div>
+        
+        <!-- Customer Portal Design -->
+        <div class="section">
+            <h2>(A) Customer Portal - Mobile E-Wallet Design</h2>
+            <p style="color: #666; margin-bottom: 1.5rem;">PWA optimized for mobile phones. Wallet-style, clean, minimal design.</p>
+            
+            <h3>0. Loading Screen</h3>
+            <div class="mockup">
+                <div class="mobile-mockup">
+                    <div class="screen" style="background: linear-gradient(135deg, #f66633 0%, #ff8c64 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 600px;">
+                        <div style="text-align: center; color: white;">
+                            <div style="width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 2rem; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px);">
+                                <div style="width: 80px; height: 80px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <div style="font-size: 2rem; font-weight: bold; color: #f66633;">E</div>
+                                </div>
+                            </div>
+                            <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem; letter-spacing: 2px;">ESPRO</div>
+                            <div style="font-size: 1rem; opacity: 0.9; letter-spacing: 1px;">Collective</div>
+                            <div style="margin-top: 3rem;">
+                                <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; margin: 0 auto; overflow: hidden;">
+                                    <div style="width: 60%; height: 100%; background: white; border-radius: 2px; animation: loading 1.5s ease-in-out infinite;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>1. Home Screen (Default Tab) - Wallet Card Design</h3>
+            <div class="mockup">
+                <div class="mobile-mockup">
+                    <div class="screen">
+                        <!-- Header -->
+                        <div class="header" style="background: transparent; box-shadow: none; padding: 1rem 1rem 0.5rem;">
+                            <div>
+                                <div style="font-weight: bold; color: #333; font-size: 1.1rem;">Welcome back</div>
+                                <div style="font-size: 0.875rem; color: #666;">Sarah Johnson</div>
+                            </div>
+                            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #f66633, #3a878c); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">S</div>
+                        </div>
+                        
+                        <!-- Wallet Card (Flip to show QR) -->
+                        <div style="position: relative; margin: 1rem 0; perspective: 1000px;">
+                            <div class="points-card" style="position: relative; min-height: 200px; cursor: pointer; transform-style: preserve-3d; transition: transform 0.6s;">
+                                <!-- Card Front -->
+                                <div style="position: relative; z-index: 2; backface-visibility: hidden;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1.5rem;">
+                                        <div>
+                                            <div style="font-size: 0.75rem; opacity: 0.9; letter-spacing: 1px; text-transform: uppercase;">ESPRO</div>
+                                            <div style="font-size: 0.875rem; opacity: 0.8; margin-top: 0.25rem;">Collective Card</div>
+                                        </div>
+                                        <div style="width: 50px; height: 30px; background: rgba(255,255,255,0.3); border-radius: 4px;"></div>
+                                    </div>
+                                    
+                                    <div style="margin: 1.5rem 0;">
+                                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Balance</div>
+                                        <div class="points-value" style="font-size: 2.5rem; font-weight: 700; letter-spacing: -1px;">1,250</div>
+                                        <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.25rem;">espro coins</div>
+                                    </div>
+                                    
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                                        <div>
+                                            <div style="font-size: 0.75rem; opacity: 0.8; margin-bottom: 0.25rem;">Loyalty ID</div>
+                                            <div style="font-family: monospace; font-size: 0.9rem; letter-spacing: 2px;">LYL-8392-4756</div>
+                                        </div>
+                                        <div style="font-size: 0.7rem; opacity: 0.7;">Tap to view QR</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Card Back (QR Code) - Hidden by default, shown when flipped -->
+                                <div style="position: absolute; inset: 0; backface-visibility: hidden; transform: rotateY(180deg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem;">
+                                    <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 1rem; text-align: center; letter-spacing: 1px;">SCAN QR CODE</div>
+                                    <div style="background: white; padding: 1.5rem; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                        <div class="qr-placeholder" style="width: 180px; height: 180px; margin: 0; border: none; background: #f5f5f5;">QR Code<br>180x180</div>
+                                    </div>
+                                    <div style="margin-top: 1rem; text-align: center;">
+                                        <div style="font-family: monospace; font-size: 0.85rem; letter-spacing: 1px; opacity: 0.9; margin-bottom: 0.5rem; font-weight: 500;">LYL-8392-4756</div>
+                                        <div style="font-size: 0.7rem; opacity: 0.7;">Tap to flip back</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Actions -->
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 1.5rem 0;">
+                            <div class="card" style="text-align: center; padding: 1rem 0.5rem; cursor: pointer;">
+                                <div style="width: 40px; height: 40px; background: #f5e9da; border-radius: 50%; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center;">
+                                    <div style="width: 20px; height: 20px; background: #f66633; border-radius: 4px;"></div>
+                                </div>
+                                <div style="font-size: 0.75rem; color: #666;">Show QR</div>
+                            </div>
+                            <div class="card" style="text-align: center; padding: 1rem 0.5rem; cursor: pointer;">
+                                <div style="width: 40px; height: 40px; background: #f5e9da; border-radius: 50%; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center;">
+                                    <div style="width: 20px; height: 20px; background: #3a878c; border-radius: 4px;"></div>
+                                </div>
+                                <div style="font-size: 0.75rem; color: #666;">Rewards</div>
+                            </div>
+                            <div class="card" style="text-align: center; padding: 1rem 0.5rem; cursor: pointer;">
+                                <div style="width: 40px; height: 40px; background: #f5e9da; border-radius: 50%; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center;">
+                                    <div style="width: 20px; height: 20px; background: #4b2e2b; border-radius: 4px;"></div>
+                                </div>
+                                <div style="font-size: 0.75rem; color: #666;">History</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Activity / Progress -->
+                        <div class="card" style="margin-top: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <div style="font-weight: 600; color: #333;">Progress to Next Card Design</div>
+                                <div style="font-size: 0.75rem; color: #666;">65%</div>
+                            </div>
+                            <div style="background: #e5e5e5; height: 8px; border-radius: 4px; overflow: hidden;">
+                                <div style="background: linear-gradient(90deg, #f66633, #3a878c); height: 100%; width: 65%;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+                                <div style="font-size: 0.75rem; color: #666;">250 / 500 coins</div>
+                                <div style="font-size: 0.75rem; color: #f66633; font-weight: 500;">250 more needed</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Latest Promotions -->
+                        <div style="margin-top: 1.5rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.75rem; color: #333;">Latest Promotions</div>
+                            <div class="banner-carousel" style="min-height: 120px; border-radius: 12px;">
+                                <div style="text-align: center;">Promotional Banner</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom Navigation -->
+                        <div style="height: 80px;"></div>
+                    </div>
+                    <div class="bottom-nav">
+                        <div class="nav-item active">
+                            <div class="nav-icon"></div>
+                            <span>Home</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Rewards</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Collections</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Promotions</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Profile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>1b. QR Code View Screen (After Tap/Click Show QR)</h3>
+            <div class="mockup">
+                <div class="mobile-mockup">
+                    <div class="screen">
+                        <!-- Header -->
+                        <div class="header" style="background: transparent; box-shadow: none; padding: 1rem 1rem 0.5rem;">
+                            <div>
+                                <div style="font-weight: bold; color: #333; font-size: 1.1rem;">QR Code</div>
+                                <div style="font-size: 0.875rem; color: #666;">Show at checkout</div>
+                            </div>
+                            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #f66633, #3a878c); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">S</div>
+                        </div>
+                        
+                        <!-- Full QR Code Display -->
+                        <div style="margin: 2rem 0; text-align: center;">
+                            <div style="font-size: 0.875rem; color: #666; margin-bottom: 1.5rem; letter-spacing: 1px; text-transform: uppercase;">Scan QR Code</div>
+                            
+                            <div style="background: white; padding: 2rem; border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: inline-block; margin-bottom: 1.5rem;">
+                                <div class="qr-placeholder" style="width: 240px; height: 240px; margin: 0; border: none; background: #f5f5f5;">QR Code<br>240x240</div>
+                            </div>
+                            
+                            <div style="margin-top: 1.5rem;">
+                                <div style="font-family: monospace; font-size: 1rem; letter-spacing: 2px; color: #333; font-weight: 500; margin-bottom: 0.5rem;">LYL-8392-4756</div>
+                                <div style="font-size: 0.75rem; color: #666;">Loyalty ID</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Instructions Card -->
+                        <div class="card" style="margin: 1.5rem 0; background: #f5e9da; border-left: 4px solid #f66633;">
+                            <div style="display: flex; align-items: start; gap: 0.75rem;">
+                                <div style="width: 32px; height: 32px; background: #f66633; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.875rem; font-weight: bold;">!</div>
+                                <div>
+                                    <div style="font-weight: 600; margin-bottom: 0.5rem; color: #333;">How to use</div>
+                                    <div style="font-size: 0.875rem; color: #666; line-height: 1.6;">Show this QR code to staff at checkout to earn espro coins. The QR code contains your Loyalty ID.</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Back Button -->
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 1rem; border-radius: 12px;">Back to Home</button>
+                        
+                        <!-- Bottom Navigation -->
+                        <div style="height: 80px;"></div>
+                    </div>
+                    <div class="bottom-nav">
+                        <div class="nav-item active">
+                            <div class="nav-icon"></div>
+                            <span>Home</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Rewards</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Collections</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Promotions</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Profile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>2. Rewards Screen - Wallet Style</h3>
+            <div class="mockup">
+                <div class="mobile-mockup">
+                    <div class="screen">
+                        <div class="header" style="background: transparent; box-shadow: none;">
+                            <div style="font-weight: bold; font-size: 1.25rem; color: #333;">Rewards</div>
+                            <div style="font-size: 0.875rem; color: #666;">1,250 espro coins available</div>
+                        </div>
+                        
+                        <div style="margin-top: 1rem;">
+                            <!-- Reward Card 1 -->
+                            <div class="card" style="margin-bottom: 1rem; border-left: 4px solid #f66633; padding: 1.25rem;">
+                                <div style="display: flex; gap: 1rem;">
+                                    <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #f66633, #ff8c64); border-radius: 12px; flex-shrink: 0;"></div>
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                            <div>
+                                                <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; color: #333;">Free Coffee</div>
+                                                <div style="font-size: 0.875rem; color: #666;">Enjoy any size coffee on us</div>
+                                            </div>
+                                            <span class="badge badge-success" style="flex-shrink: 0;">Available</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <div style="width: 20px; height: 20px; background: #f66633; border-radius: 50%;"></div>
+                                                <span style="color: #f66633; font-weight: 600;">500 coins</span>
+                                            </div>
+                                            <button class="btn btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.875rem; border-radius: 20px;">Claim</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Reward Card 2 -->
+                            <div class="card" style="margin-bottom: 1rem; border-left: 4px solid #3a878c; padding: 1.25rem;">
+                                <div style="display: flex; gap: 1rem;">
+                                    <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #3a878c, #4ba3a8); border-radius: 12px; flex-shrink: 0;"></div>
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                            <div>
+                                                <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; color: #333;">10% Off Purchase</div>
+                                                <div style="font-size: 0.875rem; color: #666;">Get 10% off your entire order</div>
+                                            </div>
+                                            <span class="badge badge-success" style="flex-shrink: 0;">Available</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <div style="width: 20px; height: 20px; background: #3a878c; border-radius: 50%;"></div>
+                                                <span style="color: #3a878c; font-weight: 600;">750 coins</span>
+                                            </div>
+                                            <button class="btn btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.875rem; border-radius: 20px; background: #3a878c;">Claim</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Locked Reward Card -->
+                            <div class="card" style="opacity: 0.5; border-left: 4px solid #e5e5e5; padding: 1.25rem; position: relative;">
+                                <div style="position: absolute; top: 1rem; right: 1rem; width: 24px; height: 24px; background: #e5e5e5; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <div style="width: 12px; height: 12px; background: #999; border-radius: 2px;"></div>
+                                </div>
+                                <div style="display: flex; gap: 1rem;">
+                                    <div style="width: 80px; height: 80px; background: #e5e5e5; border-radius: 12px; flex-shrink: 0; filter: grayscale(100%);"></div>
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                            <div>
+                                                <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; color: #999;">Free Lunch Special</div>
+                                                <div style="font-size: 0.875rem; color: #999;">Complimentary lunch special</div>
+                                            </div>
+                                            <span class="badge badge-locked" style="flex-shrink: 0;">Locked</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <div style="width: 20px; height: 20px; background: #e5e5e5; border-radius: 50%;"></div>
+                                                <span style="color: #999; font-weight: 600;">2000 coins</span>
+                                            </div>
+                                            <div style="font-size: 0.75rem; color: #999;">Need 750 more</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="height: 80px;"></div>
+                    </div>
+                    <div class="bottom-nav">
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Home</span>
+                        </div>
+                        <div class="nav-item active">
+                            <div class="nav-icon"></div>
+                            <span>Rewards</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Collections</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Promotions</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Profile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>3. Collections Screen - Card Designs (Gamification)</h3>
+            <div class="mockup">
+                <div class="mobile-mockup">
+                    <div class="screen">
+                        <div class="header" style="background: transparent; box-shadow: none;">
+                            <div>
+                                <div style="font-weight: bold; font-size: 1.25rem; color: #333;">Card Designs</div>
+                                <div style="font-size: 0.875rem; color: #666;">Unlock new card styles</div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 1rem;">
+                            <div style="text-align: center; margin-bottom: 1.5rem;">
+                                <div style="font-size: 1.5rem; font-weight: bold; color: #333;">1,250</div>
+                                <div style="font-size: 0.875rem; color: #666;">Lifetime espro coins</div>
+                            </div>
+                            
+                            <!-- Current Active Card -->
+                            <div style="margin-bottom: 1.5rem;">
+                                <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.75rem; font-weight: 500;">Currently Active</div>
+                                <div class="points-card" style="min-height: 160px; border: 3px solid #f66633; box-shadow: 0 4px 16px rgba(246, 102, 51, 0.3);">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                                        <div>
+                                            <div style="font-size: 0.75rem; opacity: 0.9; letter-spacing: 1px; text-transform: uppercase;">ESPRO</div>
+                                            <div style="font-size: 0.875rem; opacity: 0.8; margin-top: 0.25rem;">Collective Card</div>
+                                        </div>
+                                        <div style="width: 50px; height: 30px; background: rgba(255,255,255,0.3); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="margin: 1rem 0;">
+                                        <div style="font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem;">Balance</div>
+                                        <div style="font-size: 2rem; font-weight: 700; letter-spacing: -1px;">1,250</div>
+                                        <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.25rem;">espro coins</div>
+                                    </div>
+                                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                                        <div style="font-size: 0.75rem; opacity: 0.8; margin-bottom: 0.25rem;">Loyalty ID</div>
+                                        <div style="font-family: monospace; font-size: 0.85rem; letter-spacing: 2px;">LYL-8392-4756</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Available Card Designs -->
+                            <div style="margin-bottom: 0.75rem;">
+                                <div style="font-size: 0.875rem; color: #666; font-weight: 500;">Available Designs</div>
+                            </div>
+                            
+                            <div class="grid grid-2" style="gap: 1rem;">
+                                <!-- Unlocked Card Design 1 -->
+                                <div class="card" style="padding: 0; overflow: hidden; cursor: pointer; border: 2px solid #f66633;">
+                                    <div class="points-card" style="min-height: 140px; margin: 0; border-radius: 0;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                                            <div>
+                                                <div style="font-size: 0.65rem; opacity: 0.9; letter-spacing: 1px;">ESPRO</div>
+                                                <div style="font-size: 0.75rem; opacity: 0.8;">Collective</div>
+                                            </div>
+                                        </div>
+                                        <div style="font-size: 1.25rem; font-weight: 700;">1,250</div>
+                                    </div>
+                                    <div style="padding: 0.75rem; text-align: center; background: #f5e9da;">
+                                        <div style="font-size: 0.75rem; font-weight: 500; color: #333;">Classic Orange</div>
+                                        <div style="font-size: 0.65rem; color: #666; margin-top: 0.25rem;">Unlocked</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Unlocked Card Design 2 -->
+                                <div class="card" style="padding: 0; overflow: hidden; cursor: pointer;">
+                                    <div style="background: linear-gradient(135deg, #3a878c 0%, #4ba3a8 100%); min-height: 140px; margin: 0; border-radius: 0; padding: 1rem; color: white;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                                            <div>
+                                                <div style="font-size: 0.65rem; opacity: 0.9; letter-spacing: 1px;">ESPRO</div>
+                                                <div style="font-size: 0.75rem; opacity: 0.8;">Collective</div>
+                                            </div>
+                                        </div>
+                                        <div style="font-size: 1.25rem; font-weight: 700;">1,250</div>
+                                    </div>
+                                    <div style="padding: 0.75rem; text-align: center; background: #f5e9da;">
+                                        <div style="font-size: 0.75rem; font-weight: 500; color: #333;">Ocean Teal</div>
+                                        <div style="font-size: 0.65rem; color: #666; margin-top: 0.25rem;">Unlocked</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Locked Card Design 3 -->
+                                <div class="card" style="padding: 0; overflow: hidden; opacity: 0.5; position: relative;">
+                                    <div style="position: absolute; top: 0.5rem; right: 0.5rem; z-index: 10; width: 24px; height: 24px; background: rgba(0,0,0,0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                        <div style="width: 12px; height: 12px; background: white; border-radius: 2px;"></div>
+                                    </div>
+                                    <div style="background: linear-gradient(135deg, #4b2e2b 0%, #6b4a47 100%); min-height: 140px; margin: 0; border-radius: 0; padding: 1rem; color: white; filter: blur(3px);">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                                            <div>
+                                                <div style="font-size: 0.65rem; opacity: 0.9; letter-spacing: 1px;">ESPRO</div>
+                                                <div style="font-size: 0.75rem; opacity: 0.8;">Collective</div>
+                                            </div>
+                                        </div>
+                                        <div style="font-size: 1.25rem; font-weight: 700;">1,250</div>
+                                    </div>
+                                    <div style="padding: 0.75rem; text-align: center; background: #e5e5e5;">
+                                        <div style="font-size: 0.75rem; font-weight: 500; color: #999;">Dark Elegance</div>
+                                        <div style="font-size: 0.65rem; color: #999; margin-top: 0.25rem;">500 coins needed</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Locked Card Design 4 -->
+                                <div class="card" style="padding: 0; overflow: hidden; opacity: 0.5; position: relative;">
+                                    <div style="position: absolute; top: 0.5rem; right: 0.5rem; z-index: 10; width: 24px; height: 24px; background: rgba(0,0,0,0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                        <div style="width: 12px; height: 12px; background: white; border-radius: 2px;"></div>
+                                    </div>
+                                    <div style="background: linear-gradient(135deg, #9333ea 0%, #a855f7 100%); min-height: 140px; margin: 0; border-radius: 0; padding: 1rem; color: white; filter: blur(3px);">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                                            <div>
+                                                <div style="font-size: 0.65rem; opacity: 0.9; letter-spacing: 1px;">ESPRO</div>
+                                                <div style="font-size: 0.75rem; opacity: 0.8;">Collective</div>
+                                            </div>
+                                        </div>
+                                        <div style="font-size: 1.25rem; font-weight: 700;">1,250</div>
+                                    </div>
+                                    <div style="padding: 0.75rem; text-align: center; background: #e5e5e5;">
+                                        <div style="font-size: 0.75rem; font-weight: 500; color: #999;">Purple Dream</div>
+                                        <div style="font-size: 0.65rem; color: #999; margin-top: 0.25rem;">1000 coins needed</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: #f5e9da; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 0.875rem; color: #666;">Tap a card design to apply it to your ESPRO Collective Card</div>
+                            </div>
+                        </div>
+                        
+                        <div style="height: 80px;"></div>
+                    </div>
+                    <div class="bottom-nav">
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Home</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Rewards</span>
+                        </div>
+                        <div class="nav-item active">
+                            <div class="nav-icon"></div>
+                            <span>Collections</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Promotions</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Profile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>4. Promotions Screen</h3>
+            <div class="mockup">
+                <div class="mobile-mockup">
+                    <div class="screen">
+                        <div class="header">
+                            <div style="font-weight: bold; font-size: 1.25rem;">Promotions</div>
+                        </div>
+                        
+                        <div style="margin-top: 1rem;">
+                            <div class="banner-carousel" style="min-height: 180px; margin-bottom: 1rem;">
+                                Promotional Banner 1
+                            </div>
+                            <div class="banner-carousel" style="min-height: 180px; margin-bottom: 1rem;">
+                                Promotional Banner 2
+                            </div>
+                            <div class="banner-carousel" style="min-height: 180px;">
+                                Promotional Banner 3
+                            </div>
+                        </div>
+                        
+                        <div style="height: 80px;"></div>
+                    </div>
+                    <div class="bottom-nav">
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Home</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Rewards</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Collections</span>
+                        </div>
+                        <div class="nav-item active">
+                            <div class="nav-icon"></div>
+                            <span>Promotions</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Profile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>5. Profile Screen - Wallet Style</h3>
+            <div class="mockup">
+                <div class="mobile-mockup">
+                    <div class="screen">
+                        <div class="header" style="background: transparent; box-shadow: none;">
+                            <div style="font-weight: bold; font-size: 1.25rem; color: #333;">Profile</div>
+                        </div>
+                        
+                        <!-- Profile Card -->
+                        <div class="points-card" style="margin-top: 1rem; min-height: 120px;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 70px; height: 70px; background: rgba(255,255,255,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold;">S</div>
+                                <div>
+                                    <div style="font-weight: bold; font-size: 1.25rem; margin-bottom: 0.25rem;">Sarah Johnson</div>
+                                    <div style="font-size: 0.875rem; opacity: 0.9;">sarah@example.com</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Stats Cards -->
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1.5rem;">
+                            <div class="card" style="text-align: center; padding: 1.25rem;">
+                                <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.5rem; text-transform: uppercase;">Current</div>
+                                <div style="font-size: 1.75rem; font-weight: bold; color: #f66633;">1,250</div>
+                                <div style="font-size: 0.75rem; color: #999; margin-top: 0.25rem;">espro coins</div>
+                            </div>
+                            <div class="card" style="text-align: center; padding: 1.25rem;">
+                                <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.5rem; text-transform: uppercase;">Lifetime</div>
+                                <div style="font-size: 1.75rem; font-weight: bold; color: #3a878c;">1,250</div>
+                                <div style="font-size: 0.75rem; color: #999; margin-top: 0.25rem;">espro coins</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Info Cards -->
+                        <div style="margin-top: 1.5rem;">
+                            <div class="card" style="margin-bottom: 1rem; padding: 1.25rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 500; margin-bottom: 0.25rem; color: #333;">Loyalty ID</div>
+                                        <div style="font-family: monospace; color: #666; font-size: 0.875rem;">LYL-8392-4756</div>
+                                    </div>
+                                    <div style="width: 32px; height: 32px; background: #f5e9da; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                        <div style="width: 16px; height: 16px; background: #f66633; border-radius: 2px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card" style="margin-bottom: 1rem; padding: 1.25rem; cursor: pointer;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 500; margin-bottom: 0.25rem; color: #333;">Claim History</div>
+                                        <div style="font-size: 0.875rem; color: #666;">View all claimed rewards</div>
+                                    </div>
+                                    <div style="width: 24px; height: 24px; background: #e5e5e5; border-radius: 4px; transform: rotate(-90deg);"></div>
+                                </div>
+                            </div>
+                            
+                            <button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 1rem; border-radius: 12px;">Logout</button>
+                        </div>
+                        
+                        <div style="height: 80px;"></div>
+                    </div>
+                    <div class="bottom-nav">
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Home</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Rewards</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Collections</span>
+                        </div>
+                        <div class="nav-item">
+                            <div class="nav-icon"></div>
+                            <span>Promotions</span>
+                        </div>
+                        <div class="nav-item active">
+                            <div class="nav-icon"></div>
+                            <span>Profile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Admin Portal Design -->
+        <div class="section">
+            <h2>(B) Admin Portal - Web Dashboard Design</h2>
+            <p style="color: #666; margin-bottom: 1.5rem;">Side menu layout, clean and simple UI for desktop/web.</p>
+            
+            <h3>1. Dashboard Overview</h3>
+            <div class="mockup">
+                <div class="desktop-mockup">
+                    <div class="admin-layout">
+                        <div class="sidebar">
+                            <div style="font-weight: bold; font-size: 1.25rem; margin-bottom: 2rem; color: #f66633;">ESPRO Admin</div>
+                            <ul class="sidebar-menu">
+                                <li class="active">Dashboard</li>
+                                <li>Customers</li>
+                                <li>Points Upload</li>
+                                <li>Rewards</li>
+                                <li>Promotions</li>
+                                <li>Loyalty IDs</li>
+                                <li>Card Designs</li>
+                                <li>Settings</li>
+                            </ul>
+                        </div>
+                        <div class="content-area">
+                            <h3 style="margin-top: 0;">Dashboard</h3>
+                            <div class="grid grid-3" style="margin-top: 1.5rem;">
+                                <div class="card">
+                                    <div style="color: #666; font-size: 0.875rem;">Total Customers</div>
+                                    <div style="font-size: 2rem; font-weight: bold; color: #333; margin-top: 0.5rem;">1,234</div>
+                                </div>
+                                <div class="card">
+                                    <div style="color: #666; font-size: 0.875rem;">Active Rewards</div>
+                                    <div style="font-size: 2rem; font-weight: bold; color: #333; margin-top: 0.5rem;">12</div>
+                                </div>
+                                <div class="card">
+                                    <div style="color: #666; font-size: 0.875rem;">Available IDs</div>
+                                    <div style="font-size: 2rem; font-weight: bold; color: #333; margin-top: 0.5rem;">456</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>2. Customer Management</h3>
+            <div class="mockup">
+                <div class="desktop-mockup">
+                    <div class="admin-layout">
+                        <div class="sidebar">
+                            <div style="font-weight: bold; font-size: 1.25rem; margin-bottom: 2rem; color: #f66633;">ESPRO Admin</div>
+                            <ul class="sidebar-menu">
+                                <li>Dashboard</li>
+                                <li class="active">Customers</li>
+                                <li>Points Upload</li>
+                                <li>Rewards</li>
+                                <li>Promotions</li>
+                                <li>Loyalty IDs</li>
+                                <li>Card Designs</li>
+                                <li>Settings</li>
+                            </ul>
+                        </div>
+                        <div class="content-area">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                                <h3 style="margin: 0;">Customers</h3>
+                                <div style="display: flex; gap: 1rem;">
+                                    <input type="text" placeholder="Search customers..." class="form-input" style="width: 300px;">
+                                    <button class="btn btn-primary">Export CSV</button>
+                                </div>
+                            </div>
+                            <div class="table">
+                                <div class="table-header">
+                                    <div>Name</div>
+                                    <div>Loyalty ID</div>
+                                    <div>Current Coins</div>
+                                    <div>Lifetime Coins</div>
+                                </div>
+                                <div class="table-row">
+                                    <div>Sarah Johnson</div>
+                                    <div>LYL-8392-4756</div>
+                                    <div>1,250</div>
+                                    <div>1,250</div>
+                                </div>
+                                <div class="table-row">
+                                    <div>John Doe</div>
+                                    <div>LYL-1234-5678</div>
+                                    <div>850</div>
+                                    <div>2,100</div>
+                                </div>
+                                <div class="table-row">
+                                    <div>Jane Smith</div>
+                                    <div>LYL-9876-5432</div>
+                                    <div>500</div>
+                                    <div>500</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 1rem; text-align: center; color: #666;">
+                                Showing 1-10 of 1,234 | <button style="background: none; border: none; color: #f66633; cursor: pointer;">Previous</button> | <button style="background: none; border: none; color: #f66633; cursor: pointer;">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>3. Points Upload (CSV)</h3>
+            <div class="mockup">
+                <div class="desktop-mockup">
+                    <div class="admin-layout">
+                        <div class="sidebar">
+                            <div style="font-weight: bold; font-size: 1.25rem; margin-bottom: 2rem; color: #f66633;">ESPRO Admin</div>
+                            <ul class="sidebar-menu">
+                                <li>Dashboard</li>
+                                <li>Customers</li>
+                                <li class="active">Points Upload</li>
+                                <li>Rewards</li>
+                                <li>Promotions</li>
+                                <li>Loyalty IDs</li>
+                                <li>Card Designs</li>
+                                <li>Settings</li>
+                            </ul>
+                        </div>
+                        <div class="content-area">
+                            <h3 style="margin-top: 0;">Upload Points from POS</h3>
+                            <div class="card" style="max-width: 600px;">
+                                <div class="form-group">
+                                    <label class="form-label">Upload CSV File</label>
+                                    <div style="border: 2px dashed #ddd; border-radius: 8px; padding: 2rem; text-align: center; background: #fafafa;">
+                                        <div style="margin-bottom: 1rem;">📁 Drop CSV file here or click to browse</div>
+                                        <button class="btn btn-primary">Choose File</button>
+                                    </div>
+                                </div>
+                                <div style="background: #f5e9da; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                                    <div style="font-weight: 500; margin-bottom: 0.5rem;">CSV Format Required:</div>
+                                    <div style="font-family: monospace; font-size: 0.875rem;">
+                                        loyalty_id, points_to_add, date<br>
+                                        LYL-8392-4756, 100, 2024-12-04<br>
+                                        LYL-1234-5678, 50, 2024-12-04
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;">Process Upload</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>4. Rewards Management</h3>
+            <div class="mockup">
+                <div class="desktop-mockup">
+                    <div class="admin-layout">
+                        <div class="sidebar">
+                            <div style="font-weight: bold; font-size: 1.25rem; margin-bottom: 2rem; color: #f66633;">ESPRO Admin</div>
+                            <ul class="sidebar-menu">
+                                <li>Dashboard</li>
+                                <li>Customers</li>
+                                <li>Points Upload</li>
+                                <li class="active">Rewards</li>
+                                <li>Promotions</li>
+                                <li>Loyalty IDs</li>
+                                <li>Card Designs</li>
+                                <li>Settings</li>
+                            </ul>
+                        </div>
+                        <div class="content-area">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                                <h3 style="margin: 0;">Rewards</h3>
+                                <button class="btn btn-primary">+ Create Reward</button>
+                            </div>
+                            <div class="grid grid-2" style="gap: 1.5rem;">
+                                <div class="card">
+                                    <div style="height: 150px; background: linear-gradient(135deg, #f66633, #3a878c); border-radius: 8px; margin-bottom: 1rem;"></div>
+                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">Free Coffee</div>
+                                    <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">500 coins</div>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <button class="btn" style="flex: 1; background: #f5e9da;">Edit</button>
+                                        <button class="btn" style="flex: 1; background: #fee2e2; color: #dc2626;">Delete</button>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div style="height: 150px; background: linear-gradient(135deg, #3a878c, #f66633); border-radius: 8px; margin-bottom: 1rem;"></div>
+                                    <div style="font-weight: 600; margin-bottom: 0.25rem;">10% Off Purchase</div>
+                                    <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">750 coins</div>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <button class="btn" style="flex: 1; background: #f5e9da;">Edit</button>
+                                        <button class="btn" style="flex: 1; background: #fee2e2; color: #dc2626;">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>5. Card Designs Management</h3>
+            <div class="mockup">
+                <div class="desktop-mockup">
+                    <div class="admin-layout">
+                        <div class="sidebar">
+                            <div style="font-weight: bold; font-size: 1.25rem; margin-bottom: 2rem; color: #f66633;">ESPRO Admin</div>
+                            <ul class="sidebar-menu">
+                                <li>Dashboard</li>
+                                <li>Customers</li>
+                                <li>Points Upload</li>
+                                <li>Rewards</li>
+                                <li>Promotions</li>
+                                <li>Loyalty IDs</li>
+                                <li class="active">Card Designs</li>
+                                <li>Settings</li>
+                            </ul>
+                        </div>
+                        <div class="content-area">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                                <h3 style="margin: 0;">Card Design Collectibles</h3>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn" style="background: #f5e9da;">Upload Design</button>
+                                    <button class="btn btn-primary">Generate with AI</button>
+                                </div>
+                            </div>
+                            
+                            <div class="card" style="margin-bottom: 2rem;">
+                                <h4 style="margin-bottom: 1rem;">Create New Card Design</h4>
+                                <div class="form-group">
+                                    <label class="form-label">Design Name</label>
+                                    <input type="text" class="form-input" placeholder="e.g., Ocean Teal, Dark Elegance">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Unlock Requirement (Lifetime Coins)</label>
+                                    <input type="number" class="form-input" placeholder="e.g., 500">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Card Design Preview</label>
+                                    <div style="border: 2px dashed #ddd; border-radius: 8px; padding: 2rem; text-align: center; background: #fafafa; margin-bottom: 1rem;">
+                                        <div style="margin-bottom: 1rem;">🎨 Upload card design image or generate with AI</div>
+                                        <button class="btn btn-primary">Choose File</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Gradient Colors (Optional - for AI generation)</label>
+                                    <div class="grid grid-2" style="gap: 1rem;">
+                                        <div>
+                                            <label style="font-size: 0.875rem; color: #666;">Primary Color</label>
+                                            <input type="color" value="#3a878c" style="width: 100%; height: 40px; border: 1px solid #ddd; border-radius: 4px;">
+                                        </div>
+                                        <div>
+                                            <label style="font-size: 0.875rem; color: #666;">Secondary Color</label>
+                                            <input type="color" value="#4ba3a8" style="width: 100%; height: 40px; border: 1px solid #ddd; border-radius: 4px;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" style="width: 100%;">Create Card Design</button>
+                            </div>
+                            
+                            <h4 style="margin-bottom: 1rem;">Existing Card Designs</h4>
+                            <div class="grid grid-3" style="gap: 1.5rem;">
+                                <div class="card" style="padding: 0; overflow: hidden;">
+                                    <div class="points-card" style="min-height: 120px; margin: 0; border-radius: 0;"></div>
+                                    <div style="padding: 1rem;">
+                                        <div style="font-weight: 600; margin-bottom: 0.25rem;">Classic Orange</div>
+                                        <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">Unlocks at 0 coins</div>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <button class="btn" style="flex: 1; background: #f5e9da; font-size: 0.875rem; padding: 0.5rem;">Edit</button>
+                                            <button class="btn" style="flex: 1; background: #fee2e2; color: #dc2626; font-size: 0.875rem; padding: 0.5rem;">Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="card" style="padding: 0; overflow: hidden;">
+                                    <div style="background: linear-gradient(135deg, #3a878c, #4ba3a8); min-height: 120px; margin: 0; border-radius: 0; padding: 1rem; color: white;">
+                                        <div style="font-size: 0.75rem; opacity: 0.9;">ESPRO</div>
+                                        <div style="font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem;">1,250</div>
+                                    </div>
+                                    <div style="padding: 1rem;">
+                                        <div style="font-weight: 600; margin-bottom: 0.25rem;">Ocean Teal</div>
+                                        <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">Unlocks at 500 coins</div>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <button class="btn" style="flex: 1; background: #f5e9da; font-size: 0.875rem; padding: 0.5rem;">Edit</button>
+                                            <button class="btn" style="flex: 1; background: #fee2e2; color: #dc2626; font-size: 0.875rem; padding: 0.5rem;">Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>6. Settings (Brand Kit)</h3>
+            <div class="mockup">
+                <div class="desktop-mockup">
+                    <div class="admin-layout">
+                        <div class="sidebar">
+                            <div style="font-weight: bold; font-size: 1.25rem; margin-bottom: 2rem; color: #f66633;">ESPRO Admin</div>
+                            <ul class="sidebar-menu">
+                                <li>Dashboard</li>
+                                <li>Customers</li>
+                                <li>Points Upload</li>
+                                <li>Rewards</li>
+                                <li>Promotions</li>
+                                <li>Loyalty IDs</li>
+                                <li>Card Designs</li>
+                                <li class="active">Settings</li>
+                            </ul>
+                        </div>
+                        <div class="content-area">
+                            <h3 style="margin-top: 0;">Brand Settings</h3>
+                            <div class="card" style="max-width: 800px;">
+                                <h4 style="margin-bottom: 1rem;">Brand Colors</h4>
+                                <div class="grid grid-2" style="gap: 1rem; margin-bottom: 2rem;">
+                                    <div class="form-group">
+                                        <label class="form-label">Primary Color</label>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <input type="color" value="#f66633" style="width: 60px; height: 40px; border: none; border-radius: 4px;">
+                                            <input type="text" value="#f66633" class="form-input" style="flex: 1;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Secondary Color</label>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <input type="color" value="#4b2e2b" style="width: 60px; height: 40px; border: none; border-radius: 4px;">
+                                            <input type="text" value="#4b2e2b" class="form-input" style="flex: 1;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Accent Color</label>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <input type="color" value="#f5e9da" style="width: 60px; height: 40px; border: none; border-radius: 4px;">
+                                            <input type="text" value="#f5e9da" class="form-input" style="flex: 1;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Teal Color</label>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <input type="color" value="#3a878c" style="width: 60px; height: 40px; border: none; border-radius: 4px;">
+                                            <input type="text" value="#3a878c" class="form-input" style="flex: 1;">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <h4 style="margin-bottom: 1rem;">Logo</h4>
+                                <div class="form-group">
+                                    <div style="border: 2px dashed #ddd; border-radius: 8px; padding: 2rem; text-align: center; background: #fafafa;">
+                                        <div style="margin-bottom: 1rem;">📷 Upload Logo</div>
+                                        <button class="btn btn-primary">Choose File</button>
+                                    </div>
+                                </div>
+                                
+                                <div style="background: #f5e9da; padding: 1.5rem; border-radius: 8px; margin-top: 2rem;">
+                                    <div style="font-weight: 500; margin-bottom: 1rem;">Preview</div>
+                                    <div style="display: flex; gap: 1rem; align-items: center;">
+                                        <div style="width: 100px; height: 100px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+                                            Logo
+                                        </div>
+                                        <div>
+                                            <div style="width: 200px; height: 40px; background: #f66633; border-radius: 4px; margin-bottom: 0.5rem;"></div>
+                                            <div style="width: 150px; height: 30px; background: #4b2e2b; border-radius: 4px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button class="btn btn-primary" style="width: 100%; margin-top: 2rem;">Save Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Component Structure -->
+        <div class="section">
+            <h2>Component Structure</h2>
+            
+            <h3>Customer Portal Components (Mobile Wallet Style)</h3>
+            <ul>
+                <li><strong>Layout/App.jsx</strong> - Main app wrapper with bottom navigation</li>
+                <li><strong>Loading/LoadingScreen.jsx</strong> - Loading screen with orange background and white text</li>
+                <li><strong>Home/WalletCard.jsx</strong> - Flip-able wallet card (front: balance, back: QR code)</li>
+                <li><strong>Home/QRCodeView.jsx</strong> - Full QR code view screen (shown when tapping card or Show QR button)</li>
+                <li><strong>Home/QuickActions.jsx</strong> - Quick action buttons (Show QR, Rewards, History)</li>
+                <li><strong>Home/ProgressCard.jsx</strong> - Progress to next card design unlock</li>
+                <li><strong>Home/PromotionBanner.jsx</strong> - Promotional banner carousel</li>
+                <li><strong>Rewards/RewardsList.jsx</strong> - List of available rewards</li>
+                <li><strong>Rewards/RewardCard.jsx</strong> - Wallet-style reward card with image</li>
+                <li><strong>Rewards/ClaimModal.jsx</strong> - Claim confirmation modal with voucher</li>
+                <li><strong>Collections/CardDesignsGrid.jsx</strong> - Grid of card design collectibles</li>
+                <li><strong>Collections/CardDesignCard.jsx</strong> - Individual card design preview (locked/unlocked states)</li>
+                <li><strong>Collections/ActiveCardPreview.jsx</strong> - Preview of currently active card design</li>
+                <li><strong>Promotions/BannerCarousel.jsx</strong> - Promotional banner carousel</li>
+                <li><strong>Profile/ProfileCard.jsx</strong> - Wallet-style profile card</li>
+                <li><strong>Profile/StatsCards.jsx</strong> - Current and lifetime espro coins cards</li>
+                <li><strong>ClaimHistory/ClaimHistoryList.jsx</strong> - List of claimed rewards</li>
+                <li><strong>ClaimHistory/ClaimedRewardCard.jsx</strong> - Individual claimed reward card</li>
+                <li><strong>ClaimHistory/VoucherModal.jsx</strong> - Modal to view voucher code and details</li>
+                <li><strong>Navigation/BottomNav.jsx</strong> - Fixed bottom navigation bar</li>
+            </ul>
+            
+            <div class="note" style="margin-top: 1rem;">
+                <strong>Wallet Design Principles:</strong>
+                <ul style="margin-top: 0.5rem;">
+                    <li>Card-based UI with gradient backgrounds</li>
+                    <li>Flip animation for wallet card (balance ↔ QR code)</li>
+                    <li>Premium feel with subtle shadows and rounded corners</li>
+                    <li>Transaction-style history view</li>
+                    <li>Quick actions for common tasks</li>
+                    <li>Clean, minimal design with brand colors</li>
+                </ul>
+            </div>
+            
+            <h3>Admin Portal Components</h3>
+            <ul>
+                <li><strong>Layout/AdminLayout.jsx</strong> - Sidebar + content area layout</li>
+                <li><strong>Sidebar/SidebarMenu.jsx</strong> - Navigation menu</li>
+                <li><strong>Dashboard/StatsCards.jsx</strong> - Dashboard statistics</li>
+                <li><strong>Customers/CustomersTable.jsx</strong> - Customer list with search/pagination</li>
+                <li><strong>PointsUpload/CSVUpload.jsx</strong> - CSV file upload component</li>
+                <li><strong>Rewards/RewardsGrid.jsx</strong> - Grid of reward cards</li>
+                <li><strong>Rewards/RewardForm.jsx</strong> - Create/edit reward form</li>
+                <li><strong>Promotions/PromotionsList.jsx</strong> - List of promotions</li>
+                <li><strong>Promotions/PromotionForm.jsx</strong> - Create/edit promotion form</li>
+                <li><strong>LoyaltyIDs/IDUpload.jsx</strong> - Upload loyalty IDs</li>
+                <li><strong>Collections/CardDesignsManager.jsx</strong> - Manage card design collectibles</li>
+                <li><strong>Collections/CardDesignForm.jsx</strong> - Create/edit card design form</li>
+                <li><strong>Settings/BrandKit.jsx</strong> - Brand color and logo settings</li>
+            </ul>
+        </div>
+        
+        <!-- Navigation Structure -->
+        <div class="section">
+            <h2>Navigation Structure</h2>
+            
+            <h3>Customer Portal Routes</h3>
+            <ul>
+                <li><code>/</code> - Home (ESPRO Coins + QR)</li>
+                <li><code>/rewards</code> - Available Rewards</li>
+                <li><code>/collections</code> - Card Design Collectibles</li>
+                <li><code>/promotions</code> - Promotional Banners</li>
+                <li><code>/profile</code> - User Profile</li>
+                <li><code>/claim-history</code> - Claimed Rewards & Vouchers</li>
+                <li><code>/login</code> - Customer Login</li>
+            </ul>
+            
+            <h3>Admin Portal Routes</h3>
+            <ul>
+                <li><code>/admin</code> - Dashboard</li>
+                <li><code>/admin/customers</code> - Customer Management</li>
+                <li><code>/admin/points-upload</code> - CSV Points Upload</li>
+                <li><code>/admin/rewards</code> - Rewards Management</li>
+                <li><code>/admin/promotions</code> - Promotions Management</li>
+                <li><code>/admin/loyalty-ids</code> - Loyalty IDs Upload</li>
+                <li><code>/admin/collections</code> - Card Designs Management</li>
+                <li><code>/admin/settings</code> - Brand Settings</li>
+                <li><code>/admin/login</code> - Admin Login</li>
+            </ul>
+        </div>
+        
+        <!-- Typography -->
+        <div class="section">
+            <h2>Typography & Design Guidelines</h2>
+            
+            <h3>Typography</h3>
+            <ul>
+                <li><strong>Font Family:</strong> System fonts (-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, etc.)</li>
+                <li><strong>Headings:</strong> Bold, using brand colors (#4b2e2b for primary, #f66633 for accents)</li>
+                <li><strong>Body:</strong> Regular weight, #333333 for primary text, #666 for secondary</li>
+                <li><strong>Monospace:</strong> For loyalty IDs and codes</li>
+            </ul>
+            
+            <h3>Spacing & Layout</h3>
+            <ul>
+                <li><strong>Mobile:</strong> 16px padding, 8px gaps between elements</li>
+                <li><strong>Desktop:</strong> 24px padding, 16px gaps</li>
+                <li><strong>Cards:</strong> 12px border radius, subtle shadows</li>
+                <li><strong>Buttons:</strong> 8px border radius, primary color background</li>
+            </ul>
+            
+            <h3>Interactions</h3>
+            <ul>
+                <li><strong>Hover:</strong> Subtle opacity change (0.9) or background color shift</li>
+                <li><strong>Active:</strong> Slight scale (0.98) for touch feedback</li>
+                <li><strong>Transitions:</strong> 150ms ease for all interactions</li>
+                <li><strong>No black highlights:</strong> All tap highlights removed</li>
+            </ul>
+        </div>
+        
+        <div class="note" style="margin-top: 3rem;">
+            <strong>Next Steps:</strong> After approval of this design proposal, we will proceed with:
+            <ol style="margin-top: 0.5rem; margin-left: 1.5rem;">
+                <li>Setting up monorepo structure</li>
+                <li>Building Express backend with all endpoints</li>
+                <li>Creating Customer Portal (React PWA)</li>
+                <li>Creating Admin Portal (React Web)</li>
+                <li>Integrating all features</li>
+                <li>Dockerizing the project</li>
+                <li>Generating API documentation</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,274 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { customerAPI } from '../services/api';
+import useAuthStore from '../store/authStore';
+import { useNavigate } from 'react-router-dom';
+import { formatEsproCoinsDisplay } from '../utils/format';
+import { getBaseApiUrl } from '../utils/api';
+import Toast from '../components/Toast';
+
+export default function Collections() {
+  const { user, updateUser } = useAuthStore();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [activeCardFlipped, setActiveCardFlipped] = useState(false);
+  const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' });
+
+  const { data: collectibles, isLoading: isLoadingCollectibles, error: collectiblesError } = useQuery({
+    queryKey: ['collectibles'],
+    queryFn: async () => {
+      try {
+        const res = await customerAPI.getCollectibles();
+        console.log('[Collections] API Response:', res.data);
+        return res.data.collectibles || [];
+      } catch (err) {
+        console.error('[Collections] API Error:', err);
+        throw err;
+      }
+    },
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: (id) => customerAPI.activateCardDesign(id),
+    onSuccess: (data) => {
+      updateUser({ activeCardDesign: data.data.user.activeCardDesign });
+      queryClient.invalidateQueries(['profile']);
+      setToast({
+        isOpen: true,
+        message: 'Card design activated!',
+        type: 'success',
+      });
+    },
+    onError: (error) => {
+      setToast({
+        isOpen: true,
+        message: error.response?.data?.message || 'Failed to activate card design',
+        type: 'error',
+      });
+    },
+  });
+
+  const activeDesignId = user?.activeCardDesign?._id || user?.activeCardDesign;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-transparent px-4 pt-4 pb-2">
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <div className="font-bold text-xl text-gray-900">Card Designs</div>
+            <div className="text-sm text-gray-600">Unlock new card styles</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 pb-4">
+        <div className="text-center mb-6">
+          <div className="text-3xl font-bold text-gray-900">{formatEsproCoinsDisplay(user?.lifetimeEsproCoins || 0)}</div>
+          <div className="text-sm text-gray-600">Total Earned Espro Coins</div>
+        </div>
+
+        {/* Currently Active Card */}
+        {activeDesignId && collectibles && (
+          <div className="mb-6">
+            <div className="text-sm text-gray-600 mb-3 font-medium">Currently Active</div>
+            {(() => {
+              const activeDesign = collectibles.find((c) => c._id === activeDesignId);
+              if (!activeDesign) return null;
+              
+              // Construct full image URL
+              const imageUrl = activeDesign.imageUrl 
+                ? (activeDesign.imageUrl.startsWith('http') 
+                    ? activeDesign.imageUrl 
+                    : `${getBaseApiUrl()}${activeDesign.imageUrl}`)
+                : null;
+              
+              const activeCardStyle =
+                activeDesign.designType === 'image' && imageUrl
+                  ? {
+                      backgroundImage: `url(${imageUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                    }
+                  : activeDesign.designType === 'solid' && activeDesign.solidColor
+                  ? {
+                      background: activeDesign.solidColor,
+                    }
+                  : {
+                      background: `linear-gradient(135deg, ${activeDesign.gradientColors?.primary || '#f66633'} 0%, ${activeDesign.gradientColors?.secondary || '#ff8c64'} 100%)`,
+                    };
+
+              const textColor = activeDesign.textColor || '#FFFFFF';
+
+              return (
+                <div
+                  className="rounded-2xl shadow-xl border-3 cursor-pointer relative overflow-hidden"
+                  style={{
+                    borderColor: '#f66633',
+                    borderWidth: '3px',
+                    boxShadow: '0 4px 16px rgba(246, 102, 51, 0.3)',
+                    color: textColor,
+                    height: '300px',
+                  }}
+                  onClick={() => setActiveCardFlipped(!activeCardFlipped)}
+                >
+                  <div className="card-flip-container" style={{ height: '300px' }}>
+                    <div className={`card-flip-inner ${activeCardFlipped ? 'flipped' : ''}`} style={{ height: '300px' }}>
+                      {/* Front of Active Card */}
+                      <div className="card-flip-front">
+                        <div
+                          className="rounded-2xl p-6 w-full h-full relative flex flex-col"
+                          style={{
+                            ...activeCardStyle,
+                            height: '300px',
+                            color: textColor,
+                          }}
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <div className="text-xs opacity-90 tracking-wider uppercase mb-1" style={{ color: textColor }}>ESPRO</div>
+                              <div className="text-sm opacity-80" style={{ color: textColor }}>Collective Card</div>
+                            </div>
+                            <div className="w-12 h-8 rounded" style={{ backgroundColor: `${textColor}30` }}></div>
+                          </div>
+                          <div className="my-4 flex-1 min-h-0">
+                            <div className="text-sm opacity-90 mb-2" style={{ color: textColor }}>Balance</div>
+                            <div className="text-4xl font-bold tracking-tight" style={{ color: textColor }}>{formatEsproCoinsDisplay(user?.esproCoins || 0)}</div>
+                            <div className="text-xs opacity-80 mt-1" style={{ color: textColor }}>espro coins</div>
+                          </div>
+                          <div className="pt-4 mt-auto flex-shrink-0" style={{ borderTop: `1px solid ${textColor}33` }}>
+                            <div className="text-xs opacity-90 mb-1" style={{ color: textColor }}>Loyalty ID</div>
+                            <div className="text-sm font-mono tracking-wider font-semibold" style={{ color: textColor }}>{user?.loyaltyId || 'N/A'}</div>
+                          </div>
+                          <div className="absolute bottom-4 right-4 text-xs opacity-60" style={{ color: textColor }}>Tap to flip</div>
+                        </div>
+                      </div>
+
+                      {/* Back of Active Card */}
+                      <div className="card-flip-back">
+                        <div
+                          className="rounded-2xl p-6 w-full h-full flex flex-col justify-between"
+                          style={{
+                            ...activeCardStyle,
+                            height: '300px',
+                            color: textColor,
+                          }}
+                        >
+                          <div>
+                            <div className="text-xs opacity-90 tracking-wider uppercase mb-2" style={{ color: textColor }}>ESPRO</div>
+                            <div className="text-lg font-semibold mb-3" style={{ color: textColor }}>{activeDesign.name}</div>
+                            <div className="text-sm opacity-90 leading-relaxed" style={{ color: textColor }}>
+                              {activeDesign.description || 'No description available'}
+                            </div>
+                          </div>
+                          <div className="text-xs opacity-60 text-center" style={{ color: textColor }}>Tap to flip back</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        <div className="text-sm text-gray-600 mb-3 font-medium">Available Designs</div>
+        {isLoadingCollectibles ? (
+          <div className="text-center py-8 text-gray-500">Loading card designs...</div>
+        ) : collectiblesError ? (
+          <div className="text-center py-8 text-red-500">
+            Error loading card designs: {collectiblesError.response?.data?.message || collectiblesError.message}
+          </div>
+        ) : collectibles && collectibles.length > 0 ? (
+          <div className="grid grid-cols-2 gap-4">
+            {collectibles.map((collectible) => {
+            const isUnlocked = collectible.isUnlocked;
+            const isActive = collectible._id === activeDesignId;
+            
+            // Construct full image URL
+            const imageUrl = collectible.imageUrl 
+              ? (collectible.imageUrl.startsWith('http') 
+                  ? collectible.imageUrl 
+                  : `${getBaseApiUrl()}${collectible.imageUrl}`)
+              : null;
+            
+            const cardStyle =
+              collectible.designType === 'image' && imageUrl
+                ? {
+                    backgroundImage: `url(${imageUrl})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                  }
+                : collectible.designType === 'solid' && collectible.solidColor
+                ? {
+                    background: collectible.solidColor,
+                  }
+                : {
+                    background: `linear-gradient(135deg, ${collectible.gradientColors?.primary || '#f66633'} 0%, ${collectible.gradientColors?.secondary || '#ff8c64'} 100%)`,
+                  };
+
+            const textColor = collectible.textColor || '#FFFFFF';
+
+            return (
+              <div
+                key={collectible._id}
+                className={`relative rounded-xl overflow-hidden ${
+                  isActive ? 'ring-2 ring-espro-orange' : ''
+                } ${!isUnlocked ? 'opacity-50' : 'cursor-pointer'}`}
+                onClick={() => {
+                  if (isUnlocked && !isActive) {
+                    activateMutation.mutate(collectible._id);
+                  }
+                }}
+              >
+                <div className="h-32 p-3 relative" style={{ ...cardStyle, color: textColor }}>
+                  <div className="text-xs opacity-90" style={{ color: textColor }}>ESPRO</div>
+                  <div className="text-lg font-bold mt-1" style={{ color: textColor }}>{formatEsproCoinsDisplay(user?.esproCoins || 0)}</div>
+                  {!isUnlocked && (
+                    <div className="absolute top-2 right-2 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center">
+                      <div className="w-3 h-3 bg-white rounded"></div>
+                    </div>
+                  )}
+                </div>
+                <div className="bg-white p-3">
+                  <div className="text-sm font-semibold text-gray-800">{collectible.name}</div>
+                  {isUnlocked ? (
+                    <div className="text-xs text-gray-600 mt-1">
+                      {isActive ? 'Active' : 'Tap to activate'}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {formatEsproCoinsDisplay(collectible.lifetimeEsproCoinsRequired)} total earned espro coins needed
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">No card designs available</div>
+        )}
+      </div>
+
+      {/* Toast Notification */}
+      <Toast
+        isOpen={toast.isOpen}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+      />
+    </div>
+  );
+}
+

@@ -1,0 +1,28 @@
+{
+  "name": "espro-collection-app",
+  "version": "1.0.0",
+  "description": "ESPRO Collection App - MVP for loyalty, rewards, membership, and customer base building",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "backend"
+  ],
+  "scripts": {
+    "dev:customer": "cd apps/customer-portal && npm run dev",
+    "dev:admin": "cd apps/admin-portal && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "build:customer": "cd apps/customer-portal && npm run build",
+    "build:admin": "cd apps/admin-portal && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "download:odoo": "node scripts/download-odoo-spreadsheet.js"
+  },
+  "keywords": [
+    "loyalty",
+    "rewards",
+    "membership",
+    "pwa"
+  ],
+  "author": "",
+  "license": "ISC"
+}
+

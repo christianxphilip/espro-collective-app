@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: espro-mongodb
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: espro-collective
+    networks:
+      - espro-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: espro-backend
+    ports:
+      - "8000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://espro-mongodb:27017/espro-collective
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - JWT_EXPIRE=7d
+      - ODOO_USERNAME=espressionist.pos@gmail.com
+      - ODOO_PASSWORD=Coffee@0118
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      - mongodb
+    networks:
+      - espro-network
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: espro-worker
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://espro-mongodb:27017/espro-collective
+      - ODOO_USERNAME=espressionist.pos@gmail.com
+      - ODOO_PASSWORD=Coffee@0118
+    depends_on:
+      - mongodb
+    networks:
+      - espro-network
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  customer-portal:
+    build:
+      context: ./apps/customer-portal
+      dockerfile: Dockerfile
+    container_name: espro-customer-portal
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - espro-network
+    restart: unless-stopped
+
+  admin-portal:
+    build:
+      context: ./apps/admin-portal
+      dockerfile: Dockerfile
+    container_name: espro-admin-portal
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    networks:
+      - espro-network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+
+networks:
+  espro-network:
+    driver: bridge

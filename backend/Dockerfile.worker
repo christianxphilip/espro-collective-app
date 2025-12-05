@@ -1,0 +1,19 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install --production
+
+# Copy application code
+COPY . .
+
+# Expose port (not used but good practice)
+EXPOSE 5000
+
+# Run worker
+CMD ["node", "src/worker.js"]
+

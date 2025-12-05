@@ -1,0 +1,113 @@
+import { useState } from 'react';
+import useAuthStore from '../store/authStore';
+import { formatEsproCoinsDisplay } from '../utils/format';
+import { getBaseApiUrl } from '../utils/api';
+
+export default function WalletCard() {
+  const { user } = useAuthStore();
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const cardDesign = user?.activeCardDesign || {
+    gradientColors: { primary: '#f66633', secondary: '#ff8c64' },
+    designType: 'gradient',
+    textColor: '#FFFFFF',
+  };
+
+  // Construct full image URL
+  const imageUrl = cardDesign.imageUrl 
+    ? (cardDesign.imageUrl.startsWith('http') 
+        ? cardDesign.imageUrl 
+        : `${getBaseApiUrl()}${cardDesign.imageUrl}`)
+    : null;
+
+  const cardStyle =
+    cardDesign.designType === 'image' && imageUrl
+      ? { 
+          backgroundImage: `url(${imageUrl})`, 
+          backgroundSize: 'cover', 
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }
+      : cardDesign.designType === 'solid' && cardDesign.solidColor
+      ? {
+          background: cardDesign.solidColor,
+        }
+      : {
+          background: `linear-gradient(135deg, ${cardDesign.gradientColors?.primary || '#f66633'} 0%, ${cardDesign.gradientColors?.secondary || '#ff8c64'} 100%)`,
+        };
+
+  const textColor = cardDesign.textColor || '#FFFFFF';
+  const cardName = cardDesign.name || 'ESPRO Collective Card';
+  const cardDescription = cardDesign.description || 'Your loyalty card for ESPRO Collective';
+
+  return (
+    <div className="mb-6">
+      <div
+        className="relative w-full rounded-2xl shadow-xl cursor-pointer"
+        style={{
+          height: '300px',
+          color: textColor,
+        }}
+        onClick={() => setIsFlipped(!isFlipped)}
+      >
+        <div className="card-flip-container" style={{ height: '300px' }}>
+          <div className={`card-flip-inner ${isFlipped ? 'flipped' : ''}`} style={{ height: '300px' }}>
+            {/* Front of Card */}
+            <div className="card-flip-front">
+              <div
+                className="w-full h-full rounded-2xl p-6 relative flex flex-col"
+                style={{
+                  ...cardStyle,
+                  height: '300px',
+                  color: textColor,
+                }}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <div className="text-xs opacity-90 tracking-wider uppercase mb-1" style={{ color: textColor }}>ESPRO</div>
+                    <div className="text-sm opacity-80" style={{ color: textColor }}>Collective Card</div>
+                  </div>
+                  <div className="w-12 h-8 rounded" style={{ backgroundColor: `${textColor}30` }}></div>
+                </div>
+                
+                <div className="my-4 flex-1 min-h-0">
+                  <div className="text-sm opacity-90 mb-2" style={{ color: textColor }}>Balance</div>
+                  <div className="text-5xl font-bold tracking-tight" style={{ color: textColor }}>{formatEsproCoinsDisplay(user?.esproCoins || 0)}</div>
+                  <div className="text-xs opacity-80 mt-1" style={{ color: textColor }}>espro coins</div>
+                </div>
+                
+                <div className="pt-4 mt-auto flex-shrink-0" style={{ borderTop: `1px solid ${textColor}33` }}>
+                  <div className="text-xs opacity-90 mb-1" style={{ color: textColor }}>Loyalty ID</div>
+                  <div className="text-sm font-mono tracking-wider opacity-100 font-semibold" style={{ color: textColor }}>{user?.loyaltyId || 'N/A'}</div>
+                </div>
+                <div className="absolute bottom-4 right-4 text-xs opacity-60" style={{ color: textColor }}>Tap to flip</div>
+              </div>
+            </div>
+
+            {/* Back of Card */}
+            <div className="card-flip-back">
+              <div
+                className="w-full h-full rounded-2xl p-6 flex flex-col justify-between"
+                style={{
+                  ...cardStyle,
+                  height: '300px',
+                  color: textColor,
+                }}
+              >
+                <div>
+                  <div className="text-xs opacity-90 tracking-wider uppercase mb-2" style={{ color: textColor }}>ESPRO</div>
+                  <div className="text-lg font-semibold mb-4" style={{ color: textColor }}>{cardName}</div>
+                  <div className="text-sm opacity-90 leading-relaxed" style={{ color: textColor }}>
+                    {cardDescription}
+                  </div>
+                </div>
+                <div className="text-xs opacity-60 text-center" style={{ color: textColor }}>Tap to flip back</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
