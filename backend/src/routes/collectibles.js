@@ -14,7 +14,7 @@ const router = express.Router();
 
 // Card dimensions constants
 const CARD_WIDTH = 428;
-const CARD_HEIGHT = 300;
+const CARD_HEIGHT = 380;
 
 // Helper function to resize image to card dimensions
 async function resizeImageToCardDimensions(inputPath, outputPath) {
@@ -114,7 +114,7 @@ router.post('/', upload.fields([
       createdBy: req.user._id,
       isDefault: isDefault === 'true' || isDefault === true,
       textColor: textColor || '#FFFFFF',
-      backCardColor: backCardColor || undefined,
+      backCardColor: backCardColor && backCardColor.trim() !== '' ? backCardColor : null,
     };
 
     // Handle front card image upload
@@ -249,7 +249,19 @@ router.put('/:id', upload.fields([
       collectible.isDefault = newDefault;
     }
     if (textColor) collectible.textColor = textColor;
-    if (backCardColor !== undefined) collectible.backCardColor = backCardColor || undefined;
+    
+    // Always handle backCardColor if it's in the request body (FormData always sends it)
+    // Check if the field exists in the request (even if empty string)
+    if ('backCardColor' in req.body) {
+      // If empty string or whitespace, clear it; otherwise set the value
+      const trimmedColor = typeof backCardColor === 'string' ? backCardColor.trim() : '';
+      collectible.backCardColor = trimmedColor !== '' ? trimmedColor : null;
+      console.log('[Collectibles Update] backCardColor:', { 
+        received: backCardColor, 
+        trimmed: trimmedColor, 
+        setting: collectible.backCardColor 
+      });
+    }
 
     // Handle front card image upload
     if (req.files && req.files.image && req.files.image[0]) {

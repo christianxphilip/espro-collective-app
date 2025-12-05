@@ -15,9 +15,9 @@ const router = express.Router();
 // Card design dimensions
 export const CARD_DIMENSIONS = {
   width: 428,
-  height: 300,
-  aspectRatio: '1.427:1',
-  description: '428x300 pixels',
+  height: 380,
+  aspectRatio: '1.126:1',
+  description: '428x380 pixels',
 };
 
 // Initialize OpenAI client (optional - will use if API key is provided)

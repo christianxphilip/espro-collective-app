@@ -65,26 +65,24 @@ export default function WalletCard() {
   const cardDescription = cardDesign.description || 'Your loyalty card for ESPRO Collective';
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 w-full flex justify-center">
       <div
-        className="relative rounded-2xl shadow-xl cursor-pointer mx-auto"
+        className="relative rounded-2xl shadow-xl cursor-pointer responsive-card-height"
         style={{
-          height: '300px',
-          width: '428px',
+          width: '100%',
+          maxWidth: '428px',
           color: textColor,
         }}
         onClick={() => setIsFlipped(!isFlipped)}
       >
-        <div className="card-flip-container" style={{ height: '300px', width: '428px' }}>
-          <div className={`card-flip-inner ${isFlipped ? 'flipped' : ''}`} style={{ height: '300px', width: '428px' }}>
+        <div className="card-flip-container absolute inset-0">
+          <div className={`card-flip-inner ${isFlipped ? 'flipped' : ''} absolute inset-0`}>
             {/* Front of Card */}
             <div className="card-flip-front">
               <div
                 className="w-full h-full rounded-2xl p-6 relative flex flex-col"
                 style={{
                   ...cardStyle,
-                  height: '300px',
-                  width: '428px',
                   color: textColor,
                 }}
               >
@@ -95,16 +93,14 @@ export default function WalletCard() {
                   </div>
                 </div>
                 
-                <div className="my-4 flex-1 min-h-0">
+                <div className="flex-1 min-h-0"></div>
+                
+                <div className="mt-auto pt-4 flex-shrink-0" style={{ borderTop: `1px solid ${textColor}33` }}>
                   <div className="text-sm opacity-90 mb-2" style={{ color: textColor }}>Balance</div>
                   <div className="text-5xl font-bold tracking-tight" style={{ color: textColor }}>{formatEsproCoinsDisplay(user?.esproCoins || 0)}</div>
                   <div className="text-xs opacity-80 mt-1" style={{ color: textColor }}>espro coins</div>
                 </div>
                 
-                <div className="pt-4 mt-auto flex-shrink-0" style={{ borderTop: `1px solid ${textColor}33` }}>
-                  <div className="text-xs opacity-90 mb-1" style={{ color: textColor }}>Loyalty ID</div>
-                  <div className="text-sm font-mono tracking-wider opacity-100 font-semibold" style={{ color: textColor }}>{user?.loyaltyId || 'N/A'}</div>
-                </div>
                 <div className="absolute bottom-4 right-4 text-xs opacity-60" style={{ color: textColor }}>Tap to flip</div>
               </div>
             </div>
@@ -115,8 +111,6 @@ export default function WalletCard() {
                 className="w-full h-full rounded-2xl p-6 flex flex-col justify-between"
                 style={{
                   ...backCardStyle,
-                  height: '300px',
-                  width: '428px',
                   color: textColor,
                 }}
               >
@@ -127,7 +121,13 @@ export default function WalletCard() {
                     {cardDescription}
                   </div>
                 </div>
-                <div className="text-xs opacity-60 text-center" style={{ color: textColor }}>Tap to flip back</div>
+                <div className="mt-auto">
+                  <div className="text-center mb-2">
+                    <div className="text-xs opacity-90 mb-1" style={{ color: textColor }}>Loyalty ID</div>
+                    <div className="text-sm font-mono tracking-wider opacity-100 font-semibold" style={{ color: textColor }}>{user?.loyaltyId || 'N/A'}</div>
+                  </div>
+                  <div className="text-xs opacity-60 text-center" style={{ color: textColor }}>Tap to flip back</div>
+                </div>
               </div>
             </div>
           </div>

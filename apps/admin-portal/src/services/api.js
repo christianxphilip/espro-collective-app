@@ -167,6 +167,13 @@ export const promotionsAPI = {
 export const collectiblesAPI = {
   getAll: () => api.get('/collectibles/admin'),
   create: (data) => {
+    // If data is already a FormData object, use it directly
+    if (data instanceof FormData) {
+      return api.post('/collectibles', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
+    // Otherwise, convert object to FormData
     const formData = new FormData();
     Object.keys(data).forEach((key) => {
       if (data[key] !== null && data[key] !== undefined) {
@@ -182,6 +189,13 @@ export const collectiblesAPI = {
     });
   },
   update: (id, data) => {
+    // If data is already a FormData object, use it directly
+    if (data instanceof FormData) {
+      return api.put(`/collectibles/${id}`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
+    // Otherwise, convert object to FormData
     const formData = new FormData();
     Object.keys(data).forEach((key) => {
       if (data[key] !== null && data[key] !== undefined) {

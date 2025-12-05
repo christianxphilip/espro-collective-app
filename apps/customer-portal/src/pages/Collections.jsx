@@ -6,13 +6,22 @@ import { useNavigate } from 'react-router-dom';
 import { formatEsproCoinsDisplay } from '../utils/format';
 import { getBaseApiUrl } from '../utils/api';
 import Toast from '../components/Toast';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 export default function Collections() {
-  const { user, updateUser } = useAuthStore();
+  const { user, updateUser, fetchUser } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeCardFlipped, setActiveCardFlipped] = useState(false);
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' });
+
+  // Pull to refresh
+  const { isRefreshing, pullDistance } = usePullToRefresh(
+    [['collectibles']],
+    async () => {
+      await fetchUser();
+    }
+  );
 
   const { data: collectibles, isLoading: isLoadingCollectibles, error: collectiblesError } = useQuery({
     queryKey: ['collectibles'],
@@ -106,7 +115,7 @@ export default function Collections() {
 
         {/* Currently Active Card */}
         {activeDesignId && collectibles && (
-          <div className="mb-6">
+          <div className="mb-6 w-full">
             <div className="text-sm text-gray-600 mb-3 font-medium">Currently Active</div>
             {(() => {
               const activeDesign = collectibles.find((c) => c._id === activeDesignId);
@@ -163,27 +172,25 @@ export default function Collections() {
 
               return (
                 <div
-                  className="rounded-2xl shadow-xl border-3 cursor-pointer relative overflow-hidden mx-auto"
+                  className="rounded-2xl shadow-xl border-3 cursor-pointer relative overflow-hidden mx-auto responsive-card-height"
                   style={{
                     borderColor: '#f66633',
                     borderWidth: '3px',
                     boxShadow: '0 4px 16px rgba(246, 102, 51, 0.3)',
                     color: textColor,
-                    height: '300px',
-                    width: '428px',
+                    width: '100%',
+                    maxWidth: '428px',
                   }}
                   onClick={() => setActiveCardFlipped(!activeCardFlipped)}
                 >
-                  <div className="card-flip-container" style={{ height: '300px', width: '428px' }}>
-                    <div className={`card-flip-inner ${activeCardFlipped ? 'flipped' : ''}`} style={{ height: '300px', width: '428px' }}>
+                  <div className="card-flip-container absolute inset-0">
+                    <div className={`card-flip-inner ${activeCardFlipped ? 'flipped' : ''} absolute inset-0`}>
                       {/* Front of Active Card */}
                       <div className="card-flip-front">
                         <div
                           className="rounded-2xl p-6 w-full h-full relative flex flex-col"
                           style={{
                             ...activeCardStyle,
-                            height: '300px',
-                            width: '428px',
                             color: textColor,
                           }}
                         >
@@ -193,14 +200,13 @@ export default function Collections() {
                               <div className="text-sm opacity-80" style={{ color: textColor }}>Collective Card</div>
                             </div>
                           </div>
-                          <div className="my-4 flex-1 min-h-0">
+                          
+                          <div className="flex-1 min-h-0"></div>
+                          
+                          <div className="mt-auto pt-4 flex-shrink-0" style={{ borderTop: `1px solid ${textColor}33` }}>
                             <div className="text-sm opacity-90 mb-2" style={{ color: textColor }}>Balance</div>
                             <div className="text-4xl font-bold tracking-tight" style={{ color: textColor }}>{formatEsproCoinsDisplay(user?.esproCoins || 0)}</div>
                             <div className="text-xs opacity-80 mt-1" style={{ color: textColor }}>espro coins</div>
-                          </div>
-                          <div className="pt-4 mt-auto flex-shrink-0" style={{ borderTop: `1px solid ${textColor}33` }}>
-                            <div className="text-xs opacity-90 mb-1" style={{ color: textColor }}>Loyalty ID</div>
-                            <div className="text-sm font-mono tracking-wider font-semibold" style={{ color: textColor }}>{user?.loyaltyId || 'N/A'}</div>
                           </div>
                           <div className="absolute bottom-4 right-4 text-xs opacity-60" style={{ color: textColor }}>Tap to flip</div>
                         </div>
@@ -212,8 +218,6 @@ export default function Collections() {
                           className="rounded-2xl p-6 w-full h-full flex flex-col justify-between"
                           style={{
                             ...activeBackCardStyle,
-                            height: '300px',
-                            width: '428px',
                             color: textColor,
                           }}
                         >
@@ -224,7 +228,13 @@ export default function Collections() {
                               {activeDesign.description || 'No description available'}
                             </div>
                           </div>
-                          <div className="text-xs opacity-60 text-center" style={{ color: textColor }}>Tap to flip back</div>
+                          <div className="mt-auto">
+                            <div className="text-center mb-2">
+                              <div className="text-xs opacity-90 mb-1" style={{ color: textColor }}>Loyalty ID</div>
+                              <div className="text-sm font-mono tracking-wider opacity-100 font-semibold" style={{ color: textColor }}>{user?.loyaltyId || 'N/A'}</div>
+                            </div>
+                            <div className="text-xs opacity-60 text-center" style={{ color: textColor }}>Tap to flip back</div>
+                          </div>
                         </div>
                       </div>
                     </div>

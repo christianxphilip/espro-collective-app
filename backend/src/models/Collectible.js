@@ -44,6 +44,7 @@ const collectibleSchema = new mongoose.Schema({
   backCardColor: {
     type: String,
     trim: true,
+    default: null,
   },
   backCardImageUrl: {
     type: String,

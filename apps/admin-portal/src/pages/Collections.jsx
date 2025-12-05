@@ -119,9 +119,9 @@ export default function Collections() {
         // Set default dimensions if API fails
         setCardDimensions({
           width: 428,
-          height: 300,
-          aspectRatio: '1.427:1',
-          description: '428x300 pixels',
+          height: 380,
+          aspectRatio: '1.126:1',
+          description: '428x380 pixels',
         });
       });
   }, []);
@@ -297,10 +297,8 @@ export default function Collections() {
     formDataToSend.append('isActive', formData.isActive);
     formDataToSend.append('isDefault', formData.isDefault);
     
-    // Add back card data
-    if (formData.backCardColor) {
-      formDataToSend.append('backCardColor', formData.backCardColor);
-    }
+    // Add back card data - always send it, even if empty (to clear it)
+    formDataToSend.append('backCardColor', formData.backCardColor || '');
     
     // Add front image
     if (formData.image) {
@@ -646,7 +644,7 @@ export default function Collections() {
                       </div>
                     )}
                     <p className="text-xs text-gray-500 mt-1">
-                      Upload an image file. Image will be automatically resized to {cardDimensions ? `${cardDimensions.width}×${cardDimensions.height}px` : '428×300px'}.
+                      Upload an image file. Image will be automatically resized to {cardDimensions ? `${cardDimensions.width}×${cardDimensions.height}px` : '428×380px'}.
                     </p>
                   </div>
                 )}
