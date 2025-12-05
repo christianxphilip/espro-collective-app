@@ -170,7 +170,7 @@ export const collectiblesAPI = {
     const formData = new FormData();
     Object.keys(data).forEach((key) => {
       if (data[key] !== null && data[key] !== undefined) {
-        if (key === 'image') {
+        if (key === 'image' || key === 'backCardImage') {
           if (data[key]) formData.append(key, data[key]);
         } else {
           formData.append(key, data[key]);
@@ -185,7 +185,7 @@ export const collectiblesAPI = {
     const formData = new FormData();
     Object.keys(data).forEach((key) => {
       if (data[key] !== null && data[key] !== undefined) {
-        if (key === 'image') {
+        if (key === 'image' || key === 'backCardImage') {
           if (data[key]) formData.append(key, data[key]);
         } else {
           formData.append(key, data[key]);

@@ -84,42 +84,6 @@ services:
       - espro-network
     restart: unless-stopped
 
-  ngrok-backend:
-    image: ngrok/ngrok:latest
-    container_name: espro-ngrok-backend
-    command:
-      - "start"
-      - "--all"
-      - "--config"
-      - "/etc/ngrok/ngrok.yml"
-    volumes:
-      - ./ngrok-backend.yml:/etc/ngrok/ngrok.yml:ro
-    ports:
-      - "4040:4040" # ngrok web interface for backend
-    depends_on:
-      - backend
-    networks:
-      - espro-network
-    restart: unless-stopped
-
-  ngrok-customer:
-    image: ngrok/ngrok:latest
-    container_name: espro-ngrok-customer
-    command:
-      - "start"
-      - "--all"
-      - "--config"
-      - "/etc/ngrok/ngrok.yml"
-    volumes:
-      - ./ngrok-customer.yml:/etc/ngrok/ngrok.yml:ro
-    ports:
-      - "4041:4040" # ngrok web interface for customer portal
-    depends_on:
-      - customer-portal
-    networks:
-      - espro-network
-    restart: unless-stopped
-
 volumes:
   mongodb_data:
 

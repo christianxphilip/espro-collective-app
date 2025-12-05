@@ -51,7 +51,35 @@ export default function Collections() {
   const activeDesignId = user?.activeCardDesign?._id || user?.activeCardDesign;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* Pull to Refresh Indicator */}
+      {(isRefreshing || pullDistance > 0) && (
+        <div 
+          className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center bg-espro-orange text-white py-3 transition-all duration-200"
+          style={{
+            transform: `translateY(${Math.max(0, pullDistance - 60)}px)`,
+            opacity: isRefreshing ? 1 : Math.min(1, pullDistance / 60),
+          }}
+        >
+          {isRefreshing ? (
+            <>
+              <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>Refreshing...</span>
+            </>
+          ) : (
+            <>
+              <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+              <span>Pull to refresh</span>
+            </>
+          )}
+        </div>
+      )}
+      
       {/* Header */}
       <div className="bg-transparent px-4 pt-4 pb-2">
         <div className="flex items-center gap-3 mb-2">
@@ -84,13 +112,21 @@ export default function Collections() {
               const activeDesign = collectibles.find((c) => c._id === activeDesignId);
               if (!activeDesign) return null;
               
-              // Construct full image URL
+              // Construct full image URL for front
               const imageUrl = activeDesign.imageUrl 
                 ? (activeDesign.imageUrl.startsWith('http') 
                     ? activeDesign.imageUrl 
                     : `${getBaseApiUrl()}${activeDesign.imageUrl}`)
                 : null;
               
+              // Construct full image URL for back
+              const backImageUrl = activeDesign.backCardImageUrl 
+                ? (activeDesign.backCardImageUrl.startsWith('http') 
+                    ? activeDesign.backCardImageUrl 
+                    : `${getBaseApiUrl()}${activeDesign.backCardImageUrl}`)
+                : null;
+              
+              // Front card style
               const activeCardStyle =
                 activeDesign.designType === 'image' && imageUrl
                   ? {
@@ -107,22 +143,39 @@ export default function Collections() {
                       background: `linear-gradient(135deg, ${activeDesign.gradientColors?.primary || '#f66633'} 0%, ${activeDesign.gradientColors?.secondary || '#ff8c64'} 100%)`,
                     };
 
+              // Back card style (use backCardImageUrl or backCardColor, fallback to gradient)
+              const activeBackCardStyle = backImageUrl
+                ? {
+                    backgroundImage: `url(${backImageUrl})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                  }
+                : activeDesign.backCardColor
+                ? {
+                    background: activeDesign.backCardColor,
+                  }
+                : {
+                    background: `linear-gradient(135deg, ${activeDesign.gradientColors?.primary || '#f66633'} 0%, ${activeDesign.gradientColors?.secondary || '#ff8c64'} 100%)`,
+                  };
+
               const textColor = activeDesign.textColor || '#FFFFFF';
 
               return (
                 <div
-                  className="rounded-2xl shadow-xl border-3 cursor-pointer relative overflow-hidden"
+                  className="rounded-2xl shadow-xl border-3 cursor-pointer relative overflow-hidden mx-auto"
                   style={{
                     borderColor: '#f66633',
                     borderWidth: '3px',
                     boxShadow: '0 4px 16px rgba(246, 102, 51, 0.3)',
                     color: textColor,
                     height: '300px',
+                    width: '428px',
                   }}
                   onClick={() => setActiveCardFlipped(!activeCardFlipped)}
                 >
-                  <div className="card-flip-container" style={{ height: '300px' }}>
-                    <div className={`card-flip-inner ${activeCardFlipped ? 'flipped' : ''}`} style={{ height: '300px' }}>
+                  <div className="card-flip-container" style={{ height: '300px', width: '428px' }}>
+                    <div className={`card-flip-inner ${activeCardFlipped ? 'flipped' : ''}`} style={{ height: '300px', width: '428px' }}>
                       {/* Front of Active Card */}
                       <div className="card-flip-front">
                         <div
@@ -130,6 +183,7 @@ export default function Collections() {
                           style={{
                             ...activeCardStyle,
                             height: '300px',
+                            width: '428px',
                             color: textColor,
                           }}
                         >
@@ -138,7 +192,6 @@ export default function Collections() {
                               <div className="text-xs opacity-90 tracking-wider uppercase mb-1" style={{ color: textColor }}>ESPRO</div>
                               <div className="text-sm opacity-80" style={{ color: textColor }}>Collective Card</div>
                             </div>
-                            <div className="w-12 h-8 rounded" style={{ backgroundColor: `${textColor}30` }}></div>
                           </div>
                           <div className="my-4 flex-1 min-h-0">
                             <div className="text-sm opacity-90 mb-2" style={{ color: textColor }}>Balance</div>
@@ -158,8 +211,9 @@ export default function Collections() {
                         <div
                           className="rounded-2xl p-6 w-full h-full flex flex-col justify-between"
                           style={{
-                            ...activeCardStyle,
+                            ...activeBackCardStyle,
                             height: '300px',
+                            width: '428px',
                             color: textColor,
                           }}
                         >

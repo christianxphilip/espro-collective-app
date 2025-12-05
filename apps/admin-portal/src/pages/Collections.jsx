@@ -11,6 +11,7 @@ export default function Collections() {
   const [showForm, setShowForm] = useState(false);
   const [editingCollectible, setEditingCollectible] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [previewBackImage, setPreviewBackImage] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -20,6 +21,8 @@ export default function Collections() {
     secondaryColor: '#ff8c64',
     textColor: '#FFFFFF',
     image: null,
+    backCardColor: '',
+    backCardImage: null,
     isDefault: false,
     isActive: true,
   });
@@ -115,10 +118,10 @@ export default function Collections() {
         console.error('Failed to fetch card dimensions:', err);
         // Set default dimensions if API fails
         setCardDimensions({
-          width: 856,
-          height: 540,
-          aspectRatio: '1.586:1',
-          description: '856x540 pixels (Standard credit card size)',
+          width: 428,
+          height: 300,
+          aspectRatio: '1.427:1',
+          description: '428x300 pixels',
         });
       });
   }, []);
@@ -233,10 +236,13 @@ export default function Collections() {
       secondaryColor: '#ff8c64',
       textColor: '#FFFFFF',
       image: null,
+      backCardColor: '',
+      backCardImage: null,
       isDefault: false,
       isActive: true,
     });
     setPreviewImage(null);
+    setPreviewBackImage(null);
     setAiGeneratedImageUrl(null);
   };
 
@@ -246,6 +252,12 @@ export default function Collections() {
       ? (collectible.imageUrl.startsWith('http') 
           ? collectible.imageUrl 
           : `${getBaseApiUrl()}${collectible.imageUrl}`)
+      : null;
+    
+    const backImageUrl = collectible.backCardImageUrl 
+      ? (collectible.backCardImageUrl.startsWith('http') 
+          ? collectible.backCardImageUrl 
+          : `${getBaseApiUrl()}${collectible.backCardImageUrl}`)
       : null;
     
     setFormData({
@@ -259,32 +271,58 @@ export default function Collections() {
       secondaryColor: collectible.gradientColors?.secondary || '#ff8c64',
       textColor: collectible.textColor || '#FFFFFF',
       image: null,
+      backCardColor: collectible.backCardColor || '',
+      backCardImage: null,
       isDefault: collectible.isDefault || false,
       isActive: collectible.isActive !== undefined ? collectible.isActive : true,
     });
     setPreviewImage(imageUrl);
+    setPreviewBackImage(backImageUrl);
     setAiGeneratedImageUrl(collectible.imageUrl && !imageUrl.startsWith('http') ? collectible.imageUrl : null);
     setShowForm(true);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const data = {
-      ...formData,
-      lifetimeEsproCoinsRequired: parseInt(formData.lifetimeEsproCoinsRequired),
-      isActive: formData.isActive,
-      isDefault: formData.isDefault,
-    };
-
-    // If AI generated image exists and no file is uploaded, send the imageUrl
-    if (formData.designType === 'image' && aiGeneratedImageUrl && !formData.image) {
-      data.imageUrl = aiGeneratedImageUrl;
+    const formDataToSend = new FormData();
+    
+    // Add all form fields
+    formDataToSend.append('name', formData.name);
+    formDataToSend.append('description', formData.description || '');
+    formDataToSend.append('lifetimeEsproCoinsRequired', formData.lifetimeEsproCoinsRequired);
+    formDataToSend.append('designType', formData.designType);
+    formDataToSend.append('primaryColor', formData.primaryColor);
+    formDataToSend.append('secondaryColor', formData.secondaryColor);
+    formDataToSend.append('textColor', formData.textColor);
+    formDataToSend.append('isActive', formData.isActive);
+    formDataToSend.append('isDefault', formData.isDefault);
+    
+    // Add back card data
+    if (formData.backCardColor) {
+      formDataToSend.append('backCardColor', formData.backCardColor);
+    }
+    
+    // Add front image
+    if (formData.image) {
+      formDataToSend.append('image', formData.image);
+    } else if (formData.designType === 'image' && aiGeneratedImageUrl && !formData.image) {
+      formDataToSend.append('imageUrl', aiGeneratedImageUrl);
+    }
+    
+    // Add back card image
+    if (formData.backCardImage) {
+      formDataToSend.append('backCardImage', formData.backCardImage);
+    }
+    
+    // Add solid color if design type is solid
+    if (formData.designType === 'solid') {
+      formDataToSend.append('solidColor', formData.primaryColor);
     }
 
     if (editingCollectible) {
-      updateMutation.mutate({ id: editingCollectible._id, data });
+      updateMutation.mutate({ id: editingCollectible._id, data: formDataToSend });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(formDataToSend);
     }
   };
 
@@ -575,7 +613,7 @@ export default function Collections() {
                     </div>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.svg"
                       required={!editingCollectible && !previewImage && !aiGeneratedImageUrl}
                       onChange={(e) => {
                         const file = e.target.files[0];
@@ -608,7 +646,7 @@ export default function Collections() {
                       </div>
                     )}
                     <p className="text-xs text-gray-500 mt-1">
-                      Upload an image file. Image will be automatically resized to {cardDimensions ? `${cardDimensions.width}×${cardDimensions.height}px` : '856×540px'}.
+                      Upload an image file. Image will be automatically resized to {cardDimensions ? `${cardDimensions.width}×${cardDimensions.height}px` : '428×300px'}.
                     </p>
                   </div>
                 )}
@@ -631,6 +669,74 @@ export default function Collections() {
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">Color for text displayed on the card (ESPRO, Balance, Loyalty ID)</p>
+                </div>
+
+                {/* Back Card Design Section */}
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Back Card Design</h3>
+                  <p className="text-xs text-gray-500 mb-3">Configure the design for the back of the card (shown when flipped)</p>
+                  
+                  <div className="space-y-4">
+                    {/* Back Card Color Option */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Back Card Color (Optional)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={formData.backCardColor || '#f66633'}
+                          onChange={(e) => setFormData({ ...formData, backCardColor: e.target.value, backCardImage: null })}
+                          className="h-10 w-20 border border-gray-300 rounded"
+                        />
+                        <input
+                          type="text"
+                          value={formData.backCardColor}
+                          onChange={(e) => setFormData({ ...formData, backCardColor: e.target.value, backCardImage: null })}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="#f66633"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Leave empty to use front card design</p>
+                    </div>
+
+                    {/* Back Card Image Option */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Back Card Image (Optional)</label>
+                      <input
+                        type="file"
+                        accept="image/*,.svg"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setFormData({ ...formData, backCardImage: file, backCardColor: '' });
+                            setPreviewBackImage(URL.createObjectURL(file));
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                      {previewBackImage && (
+                        <div className="mt-3">
+                          <img 
+                            src={previewBackImage} 
+                            alt="Back Card Preview" 
+                            className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewBackImage(null);
+                              setFormData({ ...formData, backCardImage: null });
+                            }}
+                            className="mt-2 text-xs text-red-600 hover:text-red-700"
+                          >
+                            Remove back image
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Upload an image for the back of the card. If both color and image are provided, image takes priority.
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2">

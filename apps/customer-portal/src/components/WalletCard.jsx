@@ -13,13 +13,21 @@ export default function WalletCard() {
     textColor: '#FFFFFF',
   };
 
-  // Construct full image URL
+  // Construct full image URL for front
   const imageUrl = cardDesign.imageUrl 
     ? (cardDesign.imageUrl.startsWith('http') 
         ? cardDesign.imageUrl 
         : `${getBaseApiUrl()}${cardDesign.imageUrl}`)
     : null;
 
+  // Construct full image URL for back
+  const backImageUrl = cardDesign.backCardImageUrl 
+    ? (cardDesign.backCardImageUrl.startsWith('http') 
+        ? cardDesign.backCardImageUrl 
+        : `${getBaseApiUrl()}${cardDesign.backCardImageUrl}`)
+    : null;
+
+  // Front card style
   const cardStyle =
     cardDesign.designType === 'image' && imageUrl
       ? { 
@@ -36,6 +44,22 @@ export default function WalletCard() {
           background: `linear-gradient(135deg, ${cardDesign.gradientColors?.primary || '#f66633'} 0%, ${cardDesign.gradientColors?.secondary || '#ff8c64'} 100%)`,
         };
 
+  // Back card style (use backCardImageUrl or backCardColor, fallback to gradient - NO front image)
+  const backCardStyle = backImageUrl
+    ? {
+        backgroundImage: `url(${backImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }
+    : cardDesign.backCardColor
+    ? {
+        background: cardDesign.backCardColor,
+      }
+    : {
+        background: `linear-gradient(135deg, ${cardDesign.gradientColors?.primary || '#f66633'} 0%, ${cardDesign.gradientColors?.secondary || '#ff8c64'} 100%)`,
+      };
+
   const textColor = cardDesign.textColor || '#FFFFFF';
   const cardName = cardDesign.name || 'ESPRO Collective Card';
   const cardDescription = cardDesign.description || 'Your loyalty card for ESPRO Collective';
@@ -43,15 +67,16 @@ export default function WalletCard() {
   return (
     <div className="mb-6">
       <div
-        className="relative w-full rounded-2xl shadow-xl cursor-pointer"
+        className="relative rounded-2xl shadow-xl cursor-pointer mx-auto"
         style={{
           height: '300px',
+          width: '428px',
           color: textColor,
         }}
         onClick={() => setIsFlipped(!isFlipped)}
       >
-        <div className="card-flip-container" style={{ height: '300px' }}>
-          <div className={`card-flip-inner ${isFlipped ? 'flipped' : ''}`} style={{ height: '300px' }}>
+        <div className="card-flip-container" style={{ height: '300px', width: '428px' }}>
+          <div className={`card-flip-inner ${isFlipped ? 'flipped' : ''}`} style={{ height: '300px', width: '428px' }}>
             {/* Front of Card */}
             <div className="card-flip-front">
               <div
@@ -59,6 +84,7 @@ export default function WalletCard() {
                 style={{
                   ...cardStyle,
                   height: '300px',
+                  width: '428px',
                   color: textColor,
                 }}
               >
@@ -67,7 +93,6 @@ export default function WalletCard() {
                     <div className="text-xs opacity-90 tracking-wider uppercase mb-1" style={{ color: textColor }}>ESPRO</div>
                     <div className="text-sm opacity-80" style={{ color: textColor }}>Collective Card</div>
                   </div>
-                  <div className="w-12 h-8 rounded" style={{ backgroundColor: `${textColor}30` }}></div>
                 </div>
                 
                 <div className="my-4 flex-1 min-h-0">
@@ -89,8 +114,9 @@ export default function WalletCard() {
               <div
                 className="w-full h-full rounded-2xl p-6 flex flex-col justify-between"
                 style={{
-                  ...cardStyle,
+                  ...backCardStyle,
                   height: '300px',
+                  width: '428px',
                   color: textColor,
                 }}
               >

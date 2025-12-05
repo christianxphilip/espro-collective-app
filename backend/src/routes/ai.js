@@ -12,12 +12,12 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// Card design dimensions (standard credit card aspect ratio: 1.586:1)
+// Card design dimensions
 export const CARD_DIMENSIONS = {
-  width: 856,
-  height: 540,
-  aspectRatio: '1.586:1',
-  description: '856x540 pixels (Standard credit card size)',
+  width: 428,
+  height: 300,
+  aspectRatio: '1.427:1',
+  description: '428x300 pixels',
 };
 
 // Initialize OpenAI client (optional - will use if API key is provided)

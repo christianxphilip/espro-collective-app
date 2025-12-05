@@ -40,6 +40,15 @@ const collectibleSchema = new mongoose.Schema({
     default: '#FFFFFF', // Default white text
     trim: true,
   },
+  // Back card design (separate from front)
+  backCardColor: {
+    type: String,
+    trim: true,
+  },
+  backCardImageUrl: {
+    type: String,
+    trim: true,
+  },
   lifetimeEsproCoinsRequired: {
     type: Number,
     required: [true, 'Lifetime espro coins requirement is needed'],

@@ -13,8 +13,8 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 
 // Card dimensions constants
-const CARD_WIDTH = 856;
-const CARD_HEIGHT = 540;
+const CARD_WIDTH = 428;
+const CARD_HEIGHT = 300;
 
 // Helper function to resize image to card dimensions
 async function resizeImageToCardDimensions(inputPath, outputPath) {
@@ -47,14 +47,14 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const mimetype = allowedTypes.test(file.mimetype) || file.mimetype === 'image/svg+xml';
 
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      cb(new Error('Only image files (JPEG, PNG, GIF, WebP, SVG) are allowed'));
     }
   },
 });
@@ -99,9 +99,12 @@ router.get('/admin', async (req, res) => {
 // @route   POST /api/collectibles
 // @desc    Create a new card design (collectible)
 // @access  Private/Admin
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'backCardImage', maxCount: 1 }
+]), async (req, res) => {
   try {
-    const { name, description, lifetimeEsproCoinsRequired, designType, primaryColor, secondaryColor, solidColor, isDefault, imageUrl, textColor } = req.body;
+    const { name, description, lifetimeEsproCoinsRequired, designType, primaryColor, secondaryColor, solidColor, isDefault, imageUrl, textColor, backCardColor, backCardImageUrl } = req.body;
 
     const collectibleData = {
       name,
@@ -111,27 +114,65 @@ router.post('/', upload.single('image'), async (req, res) => {
       createdBy: req.user._id,
       isDefault: isDefault === 'true' || isDefault === true,
       textColor: textColor || '#FFFFFF',
+      backCardColor: backCardColor || undefined,
     };
 
-    // Handle uploaded file
-    if (req.file) {
-      const originalPath = req.file.path;
-      const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-${req.file.filename}`);
+    // Handle front card image upload
+    if (req.files && req.files.image && req.files.image[0]) {
+      const file = req.files.image[0];
+      const originalPath = file.path;
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      const isSvg = fileExt === '.svg';
       
-      // Resize image to card dimensions
-      const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
-      
-      if (resizeSuccess) {
-        // Delete original and use resized version
-        fs.unlinkSync(originalPath);
-        collectibleData.imageUrl = `/uploads/collectibles/resized-${req.file.filename}`;
+      if (isSvg) {
+        // SVG files don't need resizing (they're vector graphics)
+        collectibleData.imageUrl = `/uploads/collectibles/${file.filename}`;
       } else {
-        // If resize fails, use original (but warn)
-        collectibleData.imageUrl = `/uploads/collectibles/${req.file.filename}`;
+        // Resize raster images to card dimensions
+        const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-${file.filename}`);
+        const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
+        
+        if (resizeSuccess) {
+          // Delete original and use resized version
+          fs.unlinkSync(originalPath);
+          collectibleData.imageUrl = `/uploads/collectibles/resized-${file.filename}`;
+        } else {
+          // If resize fails, use original (but warn)
+          collectibleData.imageUrl = `/uploads/collectibles/${file.filename}`;
+        }
       }
       
       collectibleData.designType = 'image';
       collectibleData.isAIGenerated = false;
+    }
+    
+    // Handle back card image upload
+    if (req.files && req.files.backCardImage && req.files.backCardImage[0]) {
+      const file = req.files.backCardImage[0];
+      const originalPath = file.path;
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      const isSvg = fileExt === '.svg';
+      
+      if (isSvg) {
+        // SVG files don't need resizing (they're vector graphics)
+        collectibleData.backCardImageUrl = `/uploads/collectibles/${file.filename}`;
+      } else {
+        // Resize raster images to card dimensions
+        const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-back-${file.filename}`);
+        const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
+        
+        if (resizeSuccess) {
+          // Delete original and use resized version
+          fs.unlinkSync(originalPath);
+          collectibleData.backCardImageUrl = `/uploads/collectibles/resized-back-${file.filename}`;
+        } else {
+          // If resize fails, use original (but warn)
+          collectibleData.backCardImageUrl = `/uploads/collectibles/${file.filename}`;
+        }
+      }
+    } else if (backCardImageUrl) {
+      // Handle AI-generated or existing back card image URL
+      collectibleData.backCardImageUrl = backCardImageUrl;
     } 
     // Handle AI-generated image URL (from body)
     else if (imageUrl && designType === 'image') {
@@ -180,7 +221,10 @@ router.post('/', upload.single('image'), async (req, res) => {
 // @route   PUT /api/collectibles/:id
 // @desc    Update a card design
 // @access  Private/Admin
-router.put('/:id', upload.single('image'), async (req, res) => {
+router.put('/:id', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'backCardImage', maxCount: 1 }
+]), async (req, res) => {
   try {
     const collectible = await Collectible.findById(req.params.id);
     if (!collectible) {
@@ -190,7 +234,7 @@ router.put('/:id', upload.single('image'), async (req, res) => {
       });
     }
 
-    const { name, description, lifetimeEsproCoinsRequired, designType, primaryColor, secondaryColor, solidColor, isActive, isDefault, imageUrl, textColor } = req.body;
+    const { name, description, lifetimeEsproCoinsRequired, designType, primaryColor, secondaryColor, solidColor, isActive, isDefault, imageUrl, textColor, backCardColor, backCardImageUrl } = req.body;
 
     if (name) collectible.name = name;
     if (description !== undefined) collectible.description = description;
@@ -205,22 +249,31 @@ router.put('/:id', upload.single('image'), async (req, res) => {
       collectible.isDefault = newDefault;
     }
     if (textColor) collectible.textColor = textColor;
+    if (backCardColor !== undefined) collectible.backCardColor = backCardColor || undefined;
 
-    // Handle uploaded file
-    if (req.file) {
-      const originalPath = req.file.path;
-      const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-${req.file.filename}`);
+    // Handle front card image upload
+    if (req.files && req.files.image && req.files.image[0]) {
+      const file = req.files.image[0];
+      const originalPath = file.path;
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      const isSvg = fileExt === '.svg';
       
-      // Resize image to card dimensions
-      const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
-      
-      if (resizeSuccess) {
-        // Delete original and use resized version
-        fs.unlinkSync(originalPath);
-        collectible.imageUrl = `/uploads/collectibles/resized-${req.file.filename}`;
+      if (isSvg) {
+        // SVG files don't need resizing (they're vector graphics)
+        collectible.imageUrl = `/uploads/collectibles/${file.filename}`;
       } else {
-        // If resize fails, use original (but warn)
-        collectible.imageUrl = `/uploads/collectibles/${req.file.filename}`;
+        // Resize raster images to card dimensions
+        const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-${file.filename}`);
+        const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
+        
+        if (resizeSuccess) {
+          // Delete original and use resized version
+          fs.unlinkSync(originalPath);
+          collectible.imageUrl = `/uploads/collectibles/resized-${file.filename}`;
+        } else {
+          // If resize fails, use original (but warn)
+          collectible.imageUrl = `/uploads/collectibles/${file.filename}`;
+        }
       }
       
       collectible.designType = 'image';
@@ -239,11 +292,40 @@ router.put('/:id', upload.single('image'), async (req, res) => {
         secondary: secondaryColor,
       };
       collectible.isAIGenerated = false;
-    }
+    } 
     // Handle solid color
     else if (designType === 'solid' && (primaryColor || solidColor)) {
       collectible.solidColor = primaryColor || solidColor;
       collectible.isAIGenerated = false;
+    }
+    
+    // Handle back card image upload
+    if (req.files && req.files.backCardImage && req.files.backCardImage[0]) {
+      const file = req.files.backCardImage[0];
+      const originalPath = file.path;
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      const isSvg = fileExt === '.svg';
+      
+      if (isSvg) {
+        // SVG files don't need resizing (they're vector graphics)
+        collectible.backCardImageUrl = `/uploads/collectibles/${file.filename}`;
+      } else {
+        // Resize raster images to card dimensions
+        const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-back-${file.filename}`);
+        const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
+        
+        if (resizeSuccess) {
+          // Delete original and use resized version
+          fs.unlinkSync(originalPath);
+          collectible.backCardImageUrl = `/uploads/collectibles/resized-back-${file.filename}`;
+        } else {
+          // If resize fails, use original (but warn)
+          collectible.backCardImageUrl = `/uploads/collectibles/${file.filename}`;
+        }
+      }
+    } else if (backCardImageUrl !== undefined) {
+      // Handle AI-generated or existing back card image URL
+      collectible.backCardImageUrl = backCardImageUrl || undefined;
     }
 
     await collectible.save();
