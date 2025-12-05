@@ -21,13 +21,31 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if there's a loyalty ID pre-assigned to this email
+    // Normalize email for comparison
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // First, check if there's a loyalty ID pre-assigned to this specific email
+    // Only assign loyalty IDs that match the registration email
     let availableLoyaltyId = await AvailableLoyaltyId.findOne({
-      partnerEmail: email.toLowerCase().trim(),
+      partnerEmail: normalizedEmail,
       isAssigned: false,
     });
 
-    // If no pre-assigned ID found, get any available loyalty ID
+    // If no pre-assigned ID found for this email, prioritize loyalty IDs without partnerEmail
+    // (unassigned ones that weren't uploaded with email data)
+    if (!availableLoyaltyId) {
+      availableLoyaltyId = await AvailableLoyaltyId.findOne({
+        isAssigned: false,
+        $or: [
+          { partnerEmail: { $exists: false } },
+          { partnerEmail: null },
+          { partnerEmail: '' }
+        ]
+      });
+    }
+
+    // If still no available ID (all have different emails), get any available loyalty ID
+    // This is a fallback - ideally all loyalty IDs should be properly assigned
     if (!availableLoyaltyId) {
       availableLoyaltyId = await AvailableLoyaltyId.findOne({ isAssigned: false });
     }
@@ -171,4 +189,5 @@ router.get('/me', protect, async (req, res) => {
 });
 
 export default router;
+
 

@@ -342,10 +342,20 @@ router.post('/loyalty-ids-upload', upload.single('csv'), async (req, res) => {
     for (const row of results) {
       try {
         // Support multiple column name formats
-        const loyaltyId = row.code || row.loyalty_id || row.loyaltyId || row.id;
-        const partnerName = row.partner || row.partner_name || row.name || '';
-        const partnerEmail = (row.partner_email || row.partnerEmail || row.email || '').toLowerCase().trim();
-        const points = parseFloat(row.points || row.points_balance || row.espro_coins || row.esproCoins || 0);
+        // New format: Code, Points, Partner, Partner/Email
+        const loyaltyId = row.code || row.Code || row.loyalty_id || row.loyaltyId || row.id;
+        const partnerName = row.partner || row.Partner || row.partner_name || row.name || '';
+        // Handle "Partner/Email" column (can be written as "Partner/Email" or "partner/email" or "Partner/Email" etc.)
+        const partnerEmail = (
+          row['Partner/Email'] || 
+          row['partner/email'] || 
+          row['partner/Email'] || 
+          row.partner_email || 
+          row.partnerEmail || 
+          row.email || 
+          ''
+        ).toLowerCase().trim();
+        const points = parseFloat(row.points || row.Points || row.points_balance || row.espro_coins || row.esproCoins || 0);
 
         if (!loyaltyId) {
           errors.push({ row, error: 'Missing code/loyalty_id' });

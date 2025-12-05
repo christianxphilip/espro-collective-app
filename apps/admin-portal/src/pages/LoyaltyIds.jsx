@@ -157,14 +157,14 @@ export default function LoyaltyIds() {
             </p>
             <div className="bg-gray-50 p-4 rounded-lg mb-4">
               <code className="text-sm">
-                code,partner,partner_email,points<br />
-                LYL-0001-0001,John Doe,john@example.com,100.50<br />
-                LYL-0001-0002,Jane Smith,jane@example.com,250.00<br />
-                LYL-0001-0003,Bob Johnson,bob@example.com,50.25
+                Code,Points,Partner,Partner/Email<br />
+                LYL-0001-0001,100.50,John Doe,john@example.com<br />
+                LYL-0001-0002,250.00,Jane Smith,jane@example.com<br />
+                LYL-0001-0003,50.25,Bob Johnson,bob@example.com
               </code>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              <strong>Note:</strong> When a customer registers with an email matching <code>partner_email</code>, 
+              <strong>Note:</strong> When a customer registers with an email matching <code>Partner/Email</code>, 
               they will automatically receive the loyalty ID and points from the CSV.
             </p>
           </div>
