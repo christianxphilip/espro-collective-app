@@ -7,6 +7,7 @@ services:
     dockerContext: ./backend
     region: oregon
     branch: master
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
@@ -32,6 +33,7 @@ services:
     dockerContext: ./backend
     region: oregon
     branch: master
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
@@ -50,6 +52,7 @@ services:
     dockerContext: ./apps/customer-portal
     region: oregon
     branch: master
+    plan: free
 
   # Admin Portal (Static Site)
   - type: web
@@ -59,4 +62,4 @@ services:
     dockerContext: ./apps/admin-portal
     region: oregon
     branch: master
-
+    plan: free

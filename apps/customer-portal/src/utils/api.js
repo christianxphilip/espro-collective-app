@@ -20,6 +20,18 @@ export function getBaseApiUrl() {
     return `${protocol}//espro-backend.onrender.com`;
   }
   
+  // For ngrok: if accessing via ngrok, use the backend ngrok URL from environment or localStorage
+  if (hostname.includes('ngrok.io') || hostname.includes('ngrok-free.app')) {
+    // Try to get backend ngrok URL from localStorage (set by admin or script)
+    const backendNgrokUrl = localStorage.getItem('BACKEND_NGROK_URL');
+    if (backendNgrokUrl) {
+      return backendNgrokUrl.replace('/api', '');
+    }
+    // Fallback: assume backend is on same ngrok domain (if using single ngrok instance)
+    // This won't work if backend and frontend are on different ngrok URLs
+    return `${protocol}//${hostname}`;
+  }
+  
   // If accessing via IP or domain (local deployment), use the same host with backend port
   // Backend runs on port 8000
   if (hostname !== 'localhost' && hostname !== '127.0.0.1') {

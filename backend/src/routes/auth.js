@@ -21,8 +21,16 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Get an available loyalty ID
-    const availableLoyaltyId = await AvailableLoyaltyId.findOne({ isAssigned: false });
+    // Check if there's a loyalty ID pre-assigned to this email
+    let availableLoyaltyId = await AvailableLoyaltyId.findOne({
+      partnerEmail: email.toLowerCase().trim(),
+      isAssigned: false,
+    });
+
+    // If no pre-assigned ID found, get any available loyalty ID
+    if (!availableLoyaltyId) {
+      availableLoyaltyId = await AvailableLoyaltyId.findOne({ isAssigned: false });
+    }
 
     if (!availableLoyaltyId) {
       return res.status(400).json({
@@ -31,12 +39,14 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create user
+    // Create user with loyalty ID and points from CSV if available
     const user = await User.create({
-      name,
+      name: availableLoyaltyId.partnerName || name, // Use partner name from CSV if available, otherwise use provided name
       email,
       password,
       loyaltyId: availableLoyaltyId.loyaltyId,
+      esproCoins: availableLoyaltyId.points || 0,
+      lifetimeEsproCoins: availableLoyaltyId.points || 0, // Set initial lifetime coins to points from CSV
     });
 
     // Mark loyalty ID as assigned

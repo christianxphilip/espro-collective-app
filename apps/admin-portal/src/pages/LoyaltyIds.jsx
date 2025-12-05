@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminAPI } from '../services/api';
 import Layout from '../components/Layout';
+import { formatEsproCoinsDisplay } from '../utils/format';
 
 export default function LoyaltyIds() {
   const [page, setPage] = useState(1);
@@ -156,12 +157,16 @@ export default function LoyaltyIds() {
             </p>
             <div className="bg-gray-50 p-4 rounded-lg mb-4">
               <code className="text-sm">
-                loyalty_id<br />
-                LYL-0001-0001<br />
-                LYL-0001-0002<br />
-                LYL-0001-0003
+                code,partner,partner_email,points<br />
+                LYL-0001-0001,John Doe,john@example.com,100.50<br />
+                LYL-0001-0002,Jane Smith,jane@example.com,250.00<br />
+                LYL-0001-0003,Bob Johnson,bob@example.com,50.25
               </code>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              <strong>Note:</strong> When a customer registers with an email matching <code>partner_email</code>, 
+              they will automatically receive the loyalty ID and points from the CSV.
+            </p>
           </div>
           <div className="mb-4">
             <input
@@ -238,6 +243,9 @@ export default function LoyaltyIds() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loyalty ID</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Partner</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned At</th>
@@ -247,6 +255,9 @@ export default function LoyaltyIds() {
                     {data?.data?.loyaltyIds?.map((id) => (
                       <tr key={id._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-semibold">{id.loyaltyId}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{id.partnerName || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{id.partnerEmail || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">{formatEsproCoinsDisplay(id.points || 0)}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 rounded text-xs ${
                             id.isAssigned ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'

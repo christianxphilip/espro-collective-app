@@ -341,21 +341,44 @@ router.post('/loyalty-ids-upload', upload.single('csv'), async (req, res) => {
     // Process each row
     for (const row of results) {
       try {
-        const loyaltyId = row.loyalty_id || row.loyaltyId || row.id;
+        // Support multiple column name formats
+        const loyaltyId = row.code || row.loyalty_id || row.loyaltyId || row.id;
+        const partnerName = row.partner || row.partner_name || row.name || '';
+        const partnerEmail = (row.partner_email || row.partnerEmail || row.email || '').toLowerCase().trim();
+        const points = parseFloat(row.points || row.points_balance || row.espro_coins || row.esproCoins || 0);
 
         if (!loyaltyId) {
-          errors.push({ row, error: 'Missing loyalty_id' });
+          errors.push({ row, error: 'Missing code/loyalty_id' });
+          continue;
+        }
+
+        if (partnerEmail && isNaN(points)) {
+          errors.push({ row, error: 'Invalid points value (must be a number)' });
           continue;
         }
 
         // Check if already exists
         const exists = await AvailableLoyaltyId.findOne({ loyaltyId });
         if (exists) {
-          errors.push({ row, error: `Loyalty ID ${loyaltyId} already exists` });
+          // Update existing record with new partner info if provided
+          if (partnerEmail) {
+            exists.partnerName = partnerName || exists.partnerName;
+            exists.partnerEmail = partnerEmail || exists.partnerEmail;
+            exists.points = points || exists.points;
+            await exists.save();
+            created.push(loyaltyId);
+          } else {
+            errors.push({ row, error: `Loyalty ID ${loyaltyId} already exists` });
+          }
           continue;
         }
 
-        await AvailableLoyaltyId.create({ loyaltyId });
+        await AvailableLoyaltyId.create({
+          loyaltyId,
+          partnerName: partnerName || undefined,
+          partnerEmail: partnerEmail || undefined,
+          points: points || 0,
+        });
         created.push(loyaltyId);
       } catch (error) {
         errors.push({ row, error: error.message });

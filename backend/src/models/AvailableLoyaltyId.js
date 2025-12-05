@@ -7,6 +7,22 @@ const availableLoyaltyIdSchema = new mongoose.Schema({
     unique: true,
     trim: true,
   },
+  partnerName: {
+    type: String,
+    trim: true,
+  },
+  partnerEmail: {
+    type: String,
+    lowercase: true,
+    trim: true,
+    sparse: true, // Allows multiple null values but enforces uniqueness for non-null values
+  },
+  points: {
+    type: Number,
+    default: 0,
+    min: 0,
+    set: (v) => parseFloat(v.toFixed(2)), // Round to 2 decimal places
+  },
   isAssigned: {
     type: Boolean,
     default: false,
@@ -23,6 +39,9 @@ const availableLoyaltyIdSchema = new mongoose.Schema({
 }, {
   timestamps: true,
 });
+
+// Index for faster email lookups
+availableLoyaltyIdSchema.index({ partnerEmail: 1 });
 
 const AvailableLoyaltyId = mongoose.model('AvailableLoyaltyId', availableLoyaltyIdSchema);
 
