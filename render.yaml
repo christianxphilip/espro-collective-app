@@ -25,25 +25,6 @@ services:
         value: Coffee@0118
     healthCheckPath: /api/health
 
-  # Worker Service (Background Jobs)
-  - type: worker
-    name: espro-worker
-    env: docker
-    dockerfilePath: ./backend/Dockerfile.worker
-    dockerContext: ./backend
-    region: oregon
-    branch: master
-    plan: free
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: MONGO_URI
-        value: mongodb+srv://christianxphilip_db_user:Rd3Ope1jFLIhOdIq@espro-collective.tbbc66n.mongodb.net/espro-collective?retryWrites=true&w=majority&appName=espro-collective
-      - key: ODOO_USERNAME
-        value: espressionist.pos@gmail.com
-      - key: ODOO_PASSWORD
-        value: Coffee@0118
-
   # Customer Portal (Static Site)
   - type: web
     name: espro-customer-portal

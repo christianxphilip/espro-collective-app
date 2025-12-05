@@ -1,0 +1,8 @@
+version: "2"
+authtoken: 36Q2rGymnjUoJFkd9rm677TY9sO_6WRGp7y4KbfnzyoDBDXjL
+tunnels:
+  customer:
+    proto: http
+    addr: espro-customer-portal:80
+    inspect: false
+

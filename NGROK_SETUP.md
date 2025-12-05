@@ -26,15 +26,19 @@ This guide explains how to use ngrok with Docker Compose to expose your backend 
 
 ### Ngrok Backend
 - **Container**: `espro-ngrok-backend`
+- **Config File**: `ngrok-backend.yml`
 - **Web Interface**: `http://localhost:4040`
 - **Exposes**: Backend API (port 5000)
 - **URL Format**: `https://[random-id].ngrok-free.app` or `https://[random-id].ngrok.io`
 
 ### Ngrok Customer Portal
 - **Container**: `espro-ngrok-customer`
+- **Config File**: `ngrok-customer.yml`
 - **Web Interface**: `http://localhost:4041`
 - **Exposes**: Customer Portal (port 80)
 - **URL Format**: `https://[random-id].ngrok-free.app` or `https://[random-id].ngrok.io`
+
+**Note**: Each ngrok container uses its own configuration file to avoid pooling conflicts.
 
 ## Getting Ngrok URLs
 
