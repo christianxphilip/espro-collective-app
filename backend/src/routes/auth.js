@@ -24,36 +24,18 @@ router.post('/register', async (req, res) => {
     // Normalize email for comparison
     const normalizedEmail = email.toLowerCase().trim();
     
-    // First, check if there's a loyalty ID pre-assigned to this specific email
-    // Only assign loyalty IDs that match the registration email
-    let availableLoyaltyId = await AvailableLoyaltyId.findOne({
+    // HARD REQUIREMENT: Only assign loyalty IDs that have a matching email address
+    // Check if there's a loyalty ID pre-assigned to this specific email
+    const availableLoyaltyId = await AvailableLoyaltyId.findOne({
       partnerEmail: normalizedEmail,
       isAssigned: false,
     });
 
-    // If no pre-assigned ID found for this email, prioritize loyalty IDs without partnerEmail
-    // (unassigned ones that weren't uploaded with email data)
-    if (!availableLoyaltyId) {
-      availableLoyaltyId = await AvailableLoyaltyId.findOne({
-        isAssigned: false,
-        $or: [
-          { partnerEmail: { $exists: false } },
-          { partnerEmail: null },
-          { partnerEmail: '' }
-        ]
-      });
-    }
-
-    // If still no available ID (all have different emails), get any available loyalty ID
-    // This is a fallback - ideally all loyalty IDs should be properly assigned
-    if (!availableLoyaltyId) {
-      availableLoyaltyId = await AvailableLoyaltyId.findOne({ isAssigned: false });
-    }
-
+    // If no matching email loyalty ID found, registration cannot proceed
     if (!availableLoyaltyId) {
       return res.status(400).json({
         success: false,
-        message: 'Registration temporarily unavailable. No available loyalty IDs.',
+        message: `Registration unavailable. No loyalty ID found for email: ${email}. Please contact support or ensure your email is included in the loyalty ID upload.`,
       });
     }
 
