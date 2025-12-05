@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import cron from 'node-cron';
+import mongoose from 'mongoose';
 import connectDB from './config/db.js';
 import { syncLoyaltyCards } from './services/odooSync.js';
 import { updateOdooBalance } from './services/odooSync.js';
@@ -28,8 +29,8 @@ dotenv.config();
 
 const app = express();
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB (will be awaited before server starts)
+let dbConnected = false;
 
 // Ensure upload directories exist
 const uploadDirs = [
@@ -79,20 +80,69 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  
-  // Start worker functionality (integrated into backend for Render free tier)
-  startWorker();
+// Start server after MongoDB connection
+async function startServer() {
+  try {
+    // Connect to MongoDB first
+    console.log('[Server] Connecting to MongoDB...');
+    await connectDB();
+    dbConnected = true;
+    console.log('[Server] MongoDB connected successfully');
+    
+    // Start the Express server
+    app.listen(PORT, () => {
+      console.log(`[Server] Server running on port ${PORT}`);
+      
+      // Start worker functionality after a short delay to ensure DB is ready
+      setTimeout(() => {
+        startWorker();
+      }, 2000); // 2 second delay to ensure DB connection is stable
+    });
+  } catch (error) {
+    console.error('[Server] Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('[Server] Unhandled Promise Rejection:', err);
+  // Don't exit in production, just log
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[Server] Continuing despite unhandled rejection');
+  } else {
+    process.exit(1);
+  }
 });
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('[Server] Uncaught Exception:', err);
+  process.exit(1);
+});
+
+// Start the server
+startServer();
 
 // Worker functionality (runs alongside API server)
 function startWorker() {
+  // Only start worker if DB is connected
+  if (!dbConnected) {
+    console.error('[Worker] Cannot start worker: MongoDB not connected');
+    return;
+  }
+  
   console.log('[Worker] Starting ESPRO Collective Worker...');
   
   // Process Odoo balance update jobs from MongoDB queue
   async function processOdooBalanceJobs() {
     try {
+      // Check if DB is still connected
+      if (mongoose.connection.readyState !== 1) {
+        console.warn('[Worker] MongoDB not connected, skipping job processing');
+        return;
+      }
+      
       // Find and lock a pending job
       const job = await OdooBalanceJob.findOneAndUpdate(
         { status: 'pending' },
@@ -136,7 +186,12 @@ function startWorker() {
         }
       }
     } catch (error) {
-      console.error('[Worker] Error processing Odoo balance jobs:', error.message);
+      // Don't log connection errors as errors, just skip processing
+      if (error.message && error.message.includes('connection')) {
+        console.warn('[Worker] MongoDB connection issue, will retry on next cycle');
+      } else {
+        console.error('[Worker] Error processing Odoo balance jobs:', error.message);
+      }
     }
   }
 
@@ -149,6 +204,12 @@ function startWorker() {
   cron.schedule('0 * * * *', async () => {
     console.log('[Cron] Starting scheduled Odoo sync...');
     try {
+      // Check if DB is connected before syncing
+      if (mongoose.connection.readyState !== 1) {
+        console.warn('[Cron] MongoDB not connected, skipping sync');
+        return;
+      }
+      
       const result = await syncLoyaltyCards();
       console.log('[Cron] Odoo sync completed:', result);
     } catch (error) {
