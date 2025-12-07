@@ -102,5 +102,9 @@ export const rewardsAPI = {
   claimReward: (id) => api.post(`/rewards/claim/${id}`),
 };
 
+export const settingsAPI = {
+  getPublicSettings: () => api.get('/settings/public'),
+};
+
 export default api;
 

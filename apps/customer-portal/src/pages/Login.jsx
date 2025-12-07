@@ -1,13 +1,29 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import useAuthStore from '../store/authStore';
+import { settingsAPI } from '../services/api';
+import { getBaseApiUrl } from '../utils/api';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', referralCode: '' });
   const [loading, setLoading] = useState(false);
   const { login, register, error } = useAuthStore();
   const navigate = useNavigate();
+  
+  // Fetch settings for logo
+  const { data: settingsResponse } = useQuery({
+    queryKey: ['public-settings'],
+    queryFn: () => settingsAPI.getPublicSettings().then((res) => res.data.settings),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+  
+  const logoUrl = settingsResponse?.logoUrl 
+    ? (settingsResponse.logoUrl.startsWith('http')
+        ? settingsResponse.logoUrl
+        : `${getBaseApiUrl()}${settingsResponse.logoUrl}`)
+    : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,7 +33,7 @@ export default function Login() {
     if (isLogin) {
       result = await login(formData.email, formData.password);
     } else {
-      result = await register(formData.name, formData.email, formData.password);
+      result = await register(formData.name, formData.email, formData.password, formData.referralCode);
     }
 
     setLoading(false);
@@ -33,8 +49,20 @@ export default function Login() {
         {/* Logo/Brand Section */}
         <div className="text-center mb-12">
           {/* Logo Icon */}
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-espro-orange rounded-2xl mb-6 shadow-lg shadow-espro-orange/20">
-            <span className="text-white text-4xl font-bold">E</span>
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-espro-orange rounded-2xl mb-6 shadow-lg shadow-espro-orange/20 overflow-hidden">
+            {logoUrl ? (
+              <img 
+                src={logoUrl} 
+                alt="ESPRO Collective Logo" 
+                className="w-full h-full object-contain p-2"
+                onError={(e) => {
+                  // Fallback to default if image fails to load
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'inline';
+                }}
+              />
+            ) : null}
+            <span className={`text-white text-4xl font-bold ${logoUrl ? 'hidden' : ''}`}>E</span>
           </div>
           
           {/* Brand Name */}

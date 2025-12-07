@@ -20,6 +20,7 @@ import rewardRoutes from './routes/rewards.js';
 import promotionRoutes from './routes/promotions.js';
 import claimRoutes from './routes/claims.js';
 import aiRoutes from './routes/ai.js';
+import settingsRoutes from './routes/settings.js';
 
 // ES6 module fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -68,6 +69,8 @@ app.use('/api/rewards', rewardRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/claims', claimRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/admin/settings', settingsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

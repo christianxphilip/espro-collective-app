@@ -1,7 +1,23 @@
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { settingsAPI } from '../services/api';
+import { getBaseApiUrl } from '../utils/api';
 
 export default function LoadingScreen() {
   const [progress, setProgress] = useState(0);
+  
+  // Fetch settings for logo
+  const { data: settingsResponse } = useQuery({
+    queryKey: ['public-settings'],
+    queryFn: () => settingsAPI.getPublicSettings().then((res) => res.data.settings),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+  
+  const logoUrl = settingsResponse?.logoUrl 
+    ? (settingsResponse.logoUrl.startsWith('http')
+        ? settingsResponse.logoUrl
+        : `${getBaseApiUrl()}${settingsResponse.logoUrl}`)
+    : null;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -22,7 +38,19 @@ export default function LoadingScreen() {
       <div className="text-center text-white">
         {/* Logo Icon */}
         <div className="w-30 h-30 bg-white/20 backdrop-blur-lg rounded-full mx-auto mb-8 flex items-center justify-center" style={{ width: '120px', height: '120px' }}>
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center">
+          {logoUrl ? (
+            <img 
+              src={logoUrl} 
+              alt="ESPRO Collective Logo" 
+              className="w-20 h-20 object-contain rounded-full"
+              onError={(e) => {
+                // Fallback to default if image fails to load
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <div className={`w-20 h-20 bg-white rounded-full flex items-center justify-center ${logoUrl ? 'hidden' : ''}`}>
             <div className="text-espro-orange text-4xl font-bold">E</div>
           </div>
         </div>
