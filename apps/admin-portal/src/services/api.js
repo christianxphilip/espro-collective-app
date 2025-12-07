@@ -93,6 +93,18 @@ export const adminAPI = {
   getRewards: (params) => api.get('/admin/rewards', { params }),
   getRedemptionHistory: (params) => api.get('/admin/redemption-history', { params }),
   getQueueStatus: () => api.get('/admin/queue-status'),
+  getSettings: () => api.get('/admin/settings'),
+  updateSettings: (data) => api.put('/admin/settings', data),
+  updateSettingsWithLogo: (formData) => api.put('/admin/settings', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  uploadLogo: (file) => {
+    const formData = new FormData();
+    formData.append('logo', file);
+    return api.post('/admin/settings/logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 export const referralsAPI = {

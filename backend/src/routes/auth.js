@@ -1,8 +1,13 @@
 import express from 'express';
 import User from '../models/User.js';
 import AvailableLoyaltyId from '../models/AvailableLoyaltyId.js';
+<<<<<<< HEAD
 import ReferralCode from '../models/ReferralCode.js';
+=======
+import Settings from '../models/Settings.js';
+>>>>>>> feature/odoo-registration-integration
 import { generateToken, protect } from '../middleware/auth.js';
+import { createOdooPartner, createOdooLoyaltyCard } from '../services/odooSync.js';
 
 const router = express.Router();
 
@@ -25,21 +30,61 @@ router.post('/register', async (req, res) => {
     // Normalize email for comparison
     const normalizedEmail = email.toLowerCase().trim();
     
-    // HARD REQUIREMENT: Only assign loyalty IDs that have a matching email address
-    // Check if there's a loyalty ID pre-assigned to this specific email
-    const availableLoyaltyId = await AvailableLoyaltyId.findOne({
-      partnerEmail: normalizedEmail,
-      isAssigned: false,
-    });
-
-    // If no matching email loyalty ID found, registration cannot proceed
-    if (!availableLoyaltyId) {
-      return res.status(400).json({
-        success: false,
-        message: `Registration unavailable. No loyalty ID found for email: ${email}. Please contact support or ensure your email is included in the loyalty ID upload.`,
+    // Check if Odoo sync is enabled
+    const settings = await Settings.getSettings();
+    const isOdooSyncEnabled = settings.odooSyncEnabled !== false; // Default to true if not set
+    
+    let availableLoyaltyId = null;
+    
+    // If Odoo sync is DISABLED, require a loyalty ID
+    if (!isOdooSyncEnabled) {
+      // Step 1: Check if there's a loyalty ID pre-assigned to this specific email
+      availableLoyaltyId = await AvailableLoyaltyId.findOne({
+        partnerEmail: normalizedEmail,
+        isAssigned: false,
       });
+      
+      // Step 2: If no matching email loyalty ID found, check for loyalty ID with no email address
+      if (!availableLoyaltyId) {
+        availableLoyaltyId = await AvailableLoyaltyId.findOne({
+          isAssigned: false,
+          $or: [
+            { partnerEmail: null },
+            { partnerEmail: '' },
+            { partnerEmail: { $exists: false } },
+          ],
+        });
+      }
+      
+      // If still no loyalty ID found, registration cannot proceed
+      if (!availableLoyaltyId) {
+        return res.status(400).json({
+          success: false,
+          message: `Registration unavailable. No loyalty ID found for email: ${email}. Please contact support or ensure your email is included in the loyalty ID upload.`,
+        });
+      }
+    } else {
+      // If Odoo sync is ENABLED, loyalty ID is optional (for bonus points/name)
+      // Step 1: Check if there's a loyalty ID pre-assigned to this specific email
+      availableLoyaltyId = await AvailableLoyaltyId.findOne({
+        partnerEmail: normalizedEmail,
+        isAssigned: false,
+      });
+      
+      // Step 2: If no matching email loyalty ID found, check for loyalty ID with no email address
+      if (!availableLoyaltyId) {
+        availableLoyaltyId = await AvailableLoyaltyId.findOne({
+          isAssigned: false,
+          $or: [
+            { partnerEmail: null },
+            { partnerEmail: '' },
+            { partnerEmail: { $exists: false } },
+          ],
+        });
+      }
     }
 
+<<<<<<< HEAD
     // Process referral code if provided
     let referralCodeDoc = null;
     if (referralCode) {
@@ -103,6 +148,60 @@ router.post('/register', async (req, res) => {
         usedAt: new Date(),
       });
       await referralCodeDoc.save();
+=======
+    // Step 1: Create partner in Odoo (only if enabled in settings)
+    let odooPartnerId;
+    let odooCardId;
+    let odooLoyaltyCode;
+    
+    if (isOdooSyncEnabled) {
+      try {
+        console.log(`[Registration] Creating Odoo partner for ${name} (${email})`);
+        odooPartnerId = await createOdooPartner(
+          availableLoyaltyId?.partnerName || name,
+          email
+        );
+        
+        // Step 2: Create loyalty card in Odoo
+        console.log(`[Registration] Creating Odoo loyalty card for partner ID: ${odooPartnerId}`);
+        const loyaltyCardData = await createOdooLoyaltyCard(odooPartnerId);
+        odooCardId = loyaltyCardData.id;
+        odooLoyaltyCode = loyaltyCardData.code;
+        
+        console.log(`[Registration] Odoo integration successful:`, {
+          partnerId: odooPartnerId,
+          cardId: odooCardId,
+          code: odooLoyaltyCode
+        });
+      } catch (odooError) {
+        console.error('[Registration] Odoo integration failed:', odooError.message);
+        // Don't fail registration if Odoo fails, but log the error
+        // Registration can proceed without Odoo sync (can be synced later)
+        console.warn('[Registration] Proceeding with registration despite Odoo error');
+      }
+    } else {
+      console.log('[Registration] Odoo sync is disabled in settings, skipping Odoo integration');
+    }
+
+    // Create user with loyalty ID and points from Odoo or CSV if available
+    const user = await User.create({
+      name: availableLoyaltyId?.partnerName || name, // Use partner name from CSV if available, otherwise use provided name
+      email,
+      password,
+      loyaltyId: odooLoyaltyCode || availableLoyaltyId?.loyaltyId || undefined, // Use Odoo code if available, then CSV, otherwise undefined
+      odooCardId: odooCardId || undefined, // Store Odoo card ID if available
+      esproCoins: availableLoyaltyId?.points || 0, // Use points from CSV if available, otherwise 0
+      lifetimeEsproCoins: availableLoyaltyId?.points || 0, // Set initial lifetime coins to points from CSV if available
+    });
+
+    // Mark loyalty ID as assigned if one was found and used
+    // This is required when Odoo sync is disabled, and optional when enabled
+    if (availableLoyaltyId) {
+      availableLoyaltyId.isAssigned = true;
+      availableLoyaltyId.assignedTo = user._id;
+      availableLoyaltyId.assignedAt = new Date();
+      await availableLoyaltyId.save();
+>>>>>>> feature/odoo-registration-integration
     }
 
     // Generate token
