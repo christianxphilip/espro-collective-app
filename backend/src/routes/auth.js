@@ -1,6 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import AvailableLoyaltyId from '../models/AvailableLoyaltyId.js';
+import ReferralCode from '../models/ReferralCode.js';
 import { generateToken, protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -10,7 +11,7 @@ const router = express.Router();
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, referralCode } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -39,21 +40,70 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    // Process referral code if provided
+    let referralCodeDoc = null;
+    if (referralCode) {
+      const normalizedCode = referralCode.trim().toUpperCase();
+      referralCodeDoc = await ReferralCode.findOne({ code: normalizedCode });
+      
+      if (!referralCodeDoc) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid referral code',
+        });
+      }
+      
+      if (!referralCodeDoc.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Referral code is not active',
+        });
+      }
+      
+      // Check if max uses reached (if maxUses is not -1)
+      if (referralCodeDoc.maxUses !== -1 && referralCodeDoc.currentUses >= referralCodeDoc.maxUses) {
+        return res.status(400).json({
+          success: false,
+          message: 'Referral code has reached maximum uses',
+        });
+      }
+    }
+
     // Create user with loyalty ID and points from CSV if available
-    const user = await User.create({
+    const userData = {
       name: availableLoyaltyId.partnerName || name, // Use partner name from CSV if available, otherwise use provided name
       email,
       password,
       loyaltyId: availableLoyaltyId.loyaltyId,
       esproCoins: availableLoyaltyId.points || 0,
       lifetimeEsproCoins: availableLoyaltyId.points || 0, // Set initial lifetime coins to points from CSV
-    });
+    };
+    
+    // Add referral code to user if provided
+    if (referralCodeDoc) {
+      userData.referralCodes = [{
+        referralCode: referralCodeDoc._id,
+        usedAt: new Date(),
+      }];
+    }
+    
+    const user = await User.create(userData);
 
     // Mark loyalty ID as assigned
     availableLoyaltyId.isAssigned = true;
     availableLoyaltyId.assignedTo = user._id;
     availableLoyaltyId.assignedAt = new Date();
     await availableLoyaltyId.save();
+    
+    // Update referral code usage if provided
+    if (referralCodeDoc) {
+      referralCodeDoc.currentUses += 1;
+      referralCodeDoc.usedBy.push({
+        user: user._id,
+        usedAt: new Date(),
+      });
+      await referralCodeDoc.save();
+    }
 
     // Generate token
     const token = generateToken(user._id);

@@ -65,6 +65,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['pool', 'manual'],
   },
+  referralCodes: [{
+    referralCode: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ReferralCode',
+      required: true,
+    },
+    usedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  }],
   createdAt: {
     type: Date,
     default: Date.now,

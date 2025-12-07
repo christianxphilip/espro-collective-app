@@ -14,6 +14,7 @@ export default function Layout({ children }) {
     else if (path.includes('/redemption-history')) setActiveTab('redemption-history');
     else if (path.includes('/promotions')) setActiveTab('promotions');
     else if (path.includes('/collections')) setActiveTab('collections');
+    else if (path.includes('/referrals')) setActiveTab('referrals');
     else if (path.includes('/loyalty-ids')) setActiveTab('loyalty-ids');
     else if (path.includes('/settings')) setActiveTab('settings');
     else setActiveTab('dashboard');
@@ -31,6 +32,7 @@ export default function Layout({ children }) {
     { id: 'redemption-history', label: 'Redemption History', icon: '📋', path: '/redemption-history' },
     { id: 'promotions', label: 'Promotions', icon: '📢', path: '/promotions' },
     { id: 'collections', label: 'Card Designs', icon: '🎨', path: '/collections' },
+    { id: 'referrals', label: 'Referrals', icon: '🎫', path: '/referrals' },
     { id: 'loyalty-ids', label: 'Loyalty IDs', icon: '🆔', path: '/loyalty-ids' },
     { id: 'settings', label: 'Settings', icon: '⚙️', path: '/settings' },
   ];

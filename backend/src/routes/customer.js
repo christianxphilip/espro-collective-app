@@ -6,6 +6,7 @@ import Claim from '../models/Claim.js';
 import Collectible from '../models/Collectible.js';
 import Promotion from '../models/Promotion.js';
 import PointsTransaction from '../models/PointsTransaction.js';
+import ReferralCode from '../models/ReferralCode.js';
 
 const router = express.Router();
 
@@ -65,7 +66,33 @@ router.put('/profile', async (req, res) => {
 // @access  Private
 router.get('/rewards', async (req, res) => {
   try {
-    const rewards = await Reward.find({ isActive: true })
+    const user = await User.findById(req.user._id).populate('referralCodes.referralCode');
+    
+    // Get all referral codes and their assigned rewards
+    const allReferralCodes = await ReferralCode.find({ isActive: true })
+      .select('assignedReward')
+      .populate('assignedReward');
+    
+    // Build a map of reward IDs that are assigned to referral codes
+    const rewardToReferralMap = new Map();
+    allReferralCodes.forEach(refCode => {
+      if (refCode.assignedReward) {
+        rewardToReferralMap.set(refCode.assignedReward._id.toString(), refCode._id.toString());
+      }
+    });
+    
+    // Get rewards that user has access to via their referral codes
+    const userReferralRewardIds = new Set();
+    if (user.referralCodes && user.referralCodes.length > 0) {
+      user.referralCodes.forEach(ref => {
+        if (ref.referralCode && ref.referralCode.assignedReward) {
+          userReferralRewardIds.add(ref.referralCode.assignedReward.toString());
+        }
+      });
+    }
+    
+    // Get all active rewards
+    const allRewards = await Reward.find({ isActive: true })
       .select('-voucherCodes -voucherCode') // Exclude voucher codes for security
       .populate({
         path: 'cardDesignIds',
@@ -73,8 +100,22 @@ router.get('/rewards', async (req, res) => {
       })
       .sort({ esproCoinsRequired: 1 });
 
+    // Filter rewards: exclude rewards assigned to referral codes UNLESS user has that referral code
+    const filteredRewards = allRewards.filter(reward => {
+      const rewardId = reward._id.toString();
+      const isAssignedToReferral = rewardToReferralMap.has(rewardId);
+      
+      if (isAssignedToReferral) {
+        // Only include if user has the referral code for this reward
+        return userReferralRewardIds.has(rewardId);
+      }
+      
+      // Include all rewards not assigned to referral codes
+      return true;
+    });
+
     // Add available count for rewards with voucher codes (without exposing the codes)
-    const rewardsWithCount = await Promise.all(rewards.map(async (reward) => {
+    const rewardsWithCount = await Promise.all(filteredRewards.map(async (reward) => {
       const rewardObj = reward.toObject();
       
       // Get the full reward to check voucher codes count (but don't expose codes)
@@ -87,6 +128,10 @@ router.get('/rewards', async (req, res) => {
         rewardObj.availableVoucherCount = reward.quantity === -1 ? -1 : reward.quantity;
         rewardObj.hasVoucherCodes = false;
       }
+      
+      // Check if available via referral
+      const isAvailableViaReferral = userReferralRewardIds.has(reward._id.toString());
+      rewardObj.isAvailableViaReferral = isAvailableViaReferral;
       
       return rewardObj;
     }));
@@ -108,14 +153,53 @@ router.get('/rewards', async (req, res) => {
 // @access  Private
 router.get('/collectibles', async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    const collectibles = await Collectible.find({ isActive: true }).sort({ lifetimeEsproCoinsRequired: 1 });
+    const user = await User.findById(req.user._id).populate('referralCodes.referralCode');
+    
+    // Get all referral codes and their assigned card designs
+    const allReferralCodes = await ReferralCode.find({ isActive: true })
+      .select('assignedCardDesign')
+      .populate('assignedCardDesign');
+    
+    // Build a map of card design IDs that are assigned to referral codes
+    const cardDesignToReferralMap = new Map();
+    allReferralCodes.forEach(refCode => {
+      if (refCode.assignedCardDesign) {
+        cardDesignToReferralMap.set(refCode.assignedCardDesign._id.toString(), refCode._id.toString());
+      }
+    });
+    
+    // Get card designs that user has access to via their referral codes
+    const userReferralCardDesignIds = new Set();
+    if (user.referralCodes && user.referralCodes.length > 0) {
+      user.referralCodes.forEach(ref => {
+        if (ref.referralCode && ref.referralCode.assignedCardDesign) {
+          userReferralCardDesignIds.add(ref.referralCode.assignedCardDesign.toString());
+        }
+      });
+    }
+    
+    // Get all active collectibles
+    const allCollectibles = await Collectible.find({ isActive: true }).sort({ lifetimeEsproCoinsRequired: 1 });
 
     // Get user's unlocked collectibles (from unlockedCollectibles array)
     const userUnlockedCollectibles = user.unlockedCollectibles || [];
+    
+    // Filter collectibles: exclude card designs assigned to referral codes UNLESS user has that referral code
+    const filteredCollectibles = allCollectibles.filter(collectible => {
+      const collectibleId = collectible._id.toString();
+      const isAssignedToReferral = cardDesignToReferralMap.has(collectibleId);
+      
+      if (isAssignedToReferral) {
+        // Only include if user has the referral code for this card design
+        return userReferralCardDesignIds.has(collectibleId);
+      }
+      
+      // Include all card designs not assigned to referral codes
+      return true;
+    });
 
     // Add unlocked status for each collectible
-    const collectiblesWithStatus = collectibles.map(collectible => {
+    const collectiblesWithStatus = filteredCollectibles.map(collectible => {
       let isUnlocked = false;
       
       if (collectible.designType === 'reward') {
@@ -125,10 +209,18 @@ router.get('/collectibles', async (req, res) => {
         // For regular designs, check lifetime coins
         isUnlocked = user.lifetimeEsproCoins >= collectible.lifetimeEsproCoinsRequired;
       }
+      
+      // Also check if available via referral code
+      const isAvailableViaReferral = userReferralCardDesignIds.has(collectible._id.toString());
+      // If available via referral, mark as unlocked (available to activate)
+      if (isAvailableViaReferral) {
+        isUnlocked = true;
+      }
 
       return {
         ...collectible.toObject(),
         isUnlocked,
+        isAvailableViaReferral,
       };
     });
 

@@ -7,6 +7,7 @@ import Rewards from './pages/Rewards';
 import RedemptionHistory from './pages/RedemptionHistory';
 import Promotions from './pages/Promotions';
 import Collections from './pages/Collections';
+import Referrals from './pages/Referrals';
 import LoyaltyIds from './pages/LoyaltyIds';
 import Settings from './pages/Settings';
 import { authAPI } from './services/api';
@@ -97,6 +98,14 @@ function App() {
           element={
             <PrivateRoute>
               <Collections />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/referrals"
+          element={
+            <PrivateRoute>
+              <Referrals />
             </PrivateRoute>
           }
         />

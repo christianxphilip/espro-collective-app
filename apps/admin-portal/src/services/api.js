@@ -95,6 +95,15 @@ export const adminAPI = {
   getQueueStatus: () => api.get('/admin/queue-status'),
 };
 
+export const referralsAPI = {
+  getAll: () => api.get('/admin/referrals'),
+  getOne: (id) => api.get(`/admin/referrals/${id}`),
+  create: (data) => api.post('/admin/referrals', data),
+  update: (id, data) => api.put(`/admin/referrals/${id}`, data),
+  delete: (id) => api.delete(`/admin/referrals/${id}`),
+  getUsers: (id) => api.get(`/admin/referrals/${id}/users`),
+};
+
 export const rewardsAPI = {
   getAll: () => api.get('/rewards'),
   create: (data) => {

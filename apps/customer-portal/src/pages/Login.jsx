@@ -4,7 +4,7 @@ import useAuthStore from '../store/authStore';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', referralCode: '' });
   const [loading, setLoading] = useState(false);
   const { login, register, error } = useAuthStore();
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ export default function Login() {
     if (isLogin) {
       result = await login(formData.email, formData.password);
     } else {
-      result = await register(formData.name, formData.email, formData.password);
+      result = await register(formData.name, formData.email, formData.password, formData.referralCode);
     }
 
     setLoading(false);
@@ -113,6 +113,31 @@ export default function Login() {
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-espro-orange focus:ring-2 focus:ring-espro-orange/20 transition-all outline-none"
                 />
               </div>
+
+              {!isLogin && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Referral Code <span className="text-gray-400 font-normal">(Optional)</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.referralCode}
+                      onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                      placeholder="Enter referral code (e.g., CLUB-XXXX-XXXX)"
+                      className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-espro-orange focus:ring-2 focus:ring-espro-orange/20 transition-all outline-none"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Have a club referral code? Enter it here to unlock exclusive content.
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
