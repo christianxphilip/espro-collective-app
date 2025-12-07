@@ -286,36 +286,108 @@ export default function Collections() {
     e.preventDefault();
     const formDataToSend = new FormData();
     
+    console.log('[Collections] Form submission:', {
+      designType: formData.designType,
+      hasImage: !!formData.image,
+      imageName: formData.image?.name,
+      hasAiImage: !!aiGeneratedImageUrl,
+      aiImageUrl: aiGeneratedImageUrl
+    });
+    
     // Add all form fields
     formDataToSend.append('name', formData.name);
     formDataToSend.append('description', formData.description || '');
     formDataToSend.append('lifetimeEsproCoinsRequired', formData.lifetimeEsproCoinsRequired);
     formDataToSend.append('designType', formData.designType);
-    formDataToSend.append('primaryColor', formData.primaryColor);
-    formDataToSend.append('secondaryColor', formData.secondaryColor);
     formDataToSend.append('textColor', formData.textColor);
     formDataToSend.append('isActive', formData.isActive);
     formDataToSend.append('isDefault', formData.isDefault);
     
-    // Add back card data - always send it, even if empty (to clear it)
-    formDataToSend.append('backCardColor', formData.backCardColor || '');
-    
-    // Add front image
-    if (formData.image) {
-      formDataToSend.append('image', formData.image);
-    } else if (formData.designType === 'image' && aiGeneratedImageUrl && !formData.image) {
-      formDataToSend.append('imageUrl', aiGeneratedImageUrl);
-    }
-    
-    // Add back card image
-    if (formData.backCardImage) {
-      formDataToSend.append('backCardImage', formData.backCardImage);
-    }
-    
-    // Add solid color if design type is solid
-    if (formData.designType === 'solid') {
+    // Handle design-specific fields based on designType
+    if (formData.designType === 'reward') {
+      // For reward type, we still need gradient colors for display, and can have images
+      formDataToSend.append('primaryColor', formData.primaryColor);
+      formDataToSend.append('secondaryColor', formData.secondaryColor);
+      
+      // Add front image if provided
+      if (formData.image) {
+        console.log('[Collections] Adding image file to FormData:', {
+          name: formData.image.name,
+          type: formData.image.type,
+          size: formData.image.size,
+          isFile: formData.image instanceof File
+        });
+        formDataToSend.append('image', formData.image);
+        // Verify it was added
+        console.log('[Collections] FormData entries after adding image:', Array.from(formDataToSend.entries()).map(([key, value]) => [key, value instanceof File ? `File: ${value.name}` : value]));
+      } else if (aiGeneratedImageUrl && !formData.image) {
+        console.log('[Collections] Adding AI-generated image URL to FormData:', aiGeneratedImageUrl);
+        formDataToSend.append('imageUrl', aiGeneratedImageUrl);
+      } else {
+        console.log('[Collections] No image provided for reward type', {
+          hasFormDataImage: !!formData.image,
+          hasAiImage: !!aiGeneratedImageUrl,
+          formDataKeys: Object.keys(formData)
+        });
+      }
+      
+      // Add back card data - always send it, even if empty (to clear it)
+      formDataToSend.append('backCardColor', formData.backCardColor || '');
+      
+      // Add back card image
+      if (formData.backCardImage) {
+        console.log('[Collections] Adding back card image file to FormData:', formData.backCardImage.name);
+        formDataToSend.append('backCardImage', formData.backCardImage);
+      }
+    } else if (formData.designType === 'gradient') {
+      formDataToSend.append('primaryColor', formData.primaryColor);
+      formDataToSend.append('secondaryColor', formData.secondaryColor);
+      
+      // Add back card data - always send it, even if empty (to clear it)
+      formDataToSend.append('backCardColor', formData.backCardColor || '');
+      
+      // Add back card image
+      if (formData.backCardImage) {
+        formDataToSend.append('backCardImage', formData.backCardImage);
+      }
+    } else if (formData.designType === 'solid') {
       formDataToSend.append('solidColor', formData.primaryColor);
+      
+      // Add back card data - always send it, even if empty (to clear it)
+      formDataToSend.append('backCardColor', formData.backCardColor || '');
+      
+      // Add back card image
+      if (formData.backCardImage) {
+        formDataToSend.append('backCardImage', formData.backCardImage);
+      }
+    } else if (formData.designType === 'image') {
+      // Add front image
+      if (formData.image) {
+        formDataToSend.append('image', formData.image);
+      } else if (aiGeneratedImageUrl && !formData.image) {
+        formDataToSend.append('imageUrl', aiGeneratedImageUrl);
+      }
+      
+      // Add back card data - always send it, even if empty (to clear it)
+      formDataToSend.append('backCardColor', formData.backCardColor || '');
+      
+      // Add back card image
+      if (formData.backCardImage) {
+        formDataToSend.append('backCardImage', formData.backCardImage);
+      }
     }
+
+    // Log all FormData entries before submission
+    console.log('[Collections] FormData entries before submission:', 
+      Array.from(formDataToSend.entries()).map(([key, value]) => [
+        key, 
+        value instanceof File 
+          ? `File: ${value.name} (${value.size} bytes, ${value.type})` 
+          : typeof value === 'object' 
+            ? JSON.stringify(value) 
+            : value
+      ])
+    );
 
     if (editingCollectible) {
       updateMutation.mutate({ id: editingCollectible._id, data: formDataToSend });
@@ -396,9 +468,15 @@ export default function Collections() {
                       <p className="text-sm text-gray-600 mb-2">{collectible.description}</p>
                     )}
                     <div className="flex justify-between items-center mb-3">
-                      <span className="text-xs text-gray-500">
-                        Unlocks at {formatEsproCoinsDisplay(collectible.lifetimeEsproCoinsRequired)} total earned espro coins
-                      </span>
+                      {collectible.designType === 'reward' ? (
+                        <span className="text-xs text-gray-500">
+                          Unlocks via rewards
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500">
+                          Unlocks at {formatEsproCoinsDisplay(collectible.lifetimeEsproCoinsRequired)} total earned espro coins
+                        </span>
+                      )}
                       {collectible.isDefault && (
                         <span className="px-2 py-1 bg-espro-orange text-white text-xs rounded">Default</span>
                       )}
@@ -450,28 +528,44 @@ export default function Collections() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Earned Espro Coins Required</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.lifetimeEsproCoinsRequired}
-                    onChange={(e) => setFormData({ ...formData, lifetimeEsproCoinsRequired: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Design Type</label>
                   <select
                     value={formData.designType}
-                    onChange={(e) => setFormData({ ...formData, designType: e.target.value })}
+                    onChange={(e) => {
+                      const newDesignType = e.target.value;
+                      setFormData({ 
+                        ...formData, 
+                        designType: newDesignType,
+                        // Reset lifetimeEsproCoinsRequired to 0 if reward type
+                        lifetimeEsproCoinsRequired: newDesignType === 'reward' ? '0' : formData.lifetimeEsproCoinsRequired
+                      });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   >
                     <option value="gradient">Gradient</option>
                     <option value="solid">Solid</option>
                     <option value="image">Image</option>
+                    <option value="reward">Reward (Unlocked via rewards)</option>
                   </select>
+                  {formData.designType === 'reward' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Reward-type designs are unlocked by claiming rewards, not by earning coins
+                    </p>
+                  )}
                 </div>
+                {formData.designType !== 'reward' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Earned Espro Coins Required</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={formData.lifetimeEsproCoinsRequired}
+                      onChange={(e) => setFormData({ ...formData, lifetimeEsproCoinsRequired: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                )}
                 {formData.designType === 'gradient' ? (
                   <div>
                     <div className="flex justify-between items-center mb-2">
@@ -568,6 +662,153 @@ export default function Collections() {
                     }}>
                       <div className="text-xs opacity-80" style={{ color: formData.textColor }}>Preview</div>
                     </div>
+                  </div>
+                ) : formData.designType === 'reward' ? (
+                  <div>
+                    {/* For reward type, show gradient colors and image upload */}
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-gray-700">Gradient Colors</label>
+                      <button
+                        type="button"
+                        onClick={handleGenerateColors}
+                        disabled={generatingColors}
+                        className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-lg font-medium hover:bg-purple-200 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {generatingColors ? (
+                          <>
+                            <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <span>✨</span>
+                            Generate with AI
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={formData.primaryColor}
+                            onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
+                            className="h-10 w-20 border border-gray-300 rounded"
+                          />
+                          <input
+                            type="text"
+                            value={formData.primaryColor}
+                            onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={formData.secondaryColor}
+                            onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
+                            className="h-10 w-20 border border-gray-300 rounded"
+                          />
+                          <input
+                            type="text"
+                            value={formData.secondaryColor}
+                            onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Preview */}
+                    <div className="mt-3 p-3 rounded-lg border border-gray-200" style={{
+                      background: `linear-gradient(135deg, ${formData.primaryColor} 0%, ${formData.secondaryColor} 100%)`,
+                      minHeight: '60px',
+                      color: formData.textColor,
+                    }}>
+                      <div className="text-xs opacity-80" style={{ color: formData.textColor }}>Preview</div>
+                    </div>
+                    
+                    {/* Image upload for reward type */}
+                    {cardDimensions && (
+                      <div className="mt-4 mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-blue-600">📐</span>
+                          <span className="text-sm font-semibold text-blue-900">Required Card Dimensions</span>
+                        </div>
+                        <div className="text-xs text-blue-700">
+                          <div className="font-mono font-semibold">{cardDimensions.width} × {cardDimensions.height} pixels</div>
+                          <div className="mt-1">Aspect Ratio: {cardDimensions.aspectRatio}</div>
+                          <div className="text-blue-600 mt-1">{cardDimensions.description}</div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center mb-2 mt-4">
+                      <label className="block text-sm font-medium text-gray-700">Card Design Image (Optional)</label>
+                      <button
+                        type="button"
+                        onClick={handleGenerateImageClick}
+                        disabled={generatingImage}
+                        className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-lg font-medium hover:bg-purple-200 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {generatingImage ? (
+                          <>
+                            <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <span>🎨</span>
+                            Generate with AI
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*,.svg"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setFormData({ ...formData, image: file });
+                          setPreviewImage(URL.createObjectURL(file));
+                          setAiGeneratedImageUrl(null); // Clear AI image if user uploads
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {previewImage && (
+                      <div className="mt-3">
+                        <img 
+                          src={previewImage} 
+                          alt="Preview" 
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewImage(null);
+                            setFormData({ ...formData, image: null });
+                            setAiGeneratedImageUrl(null);
+                          }}
+                          className="mt-2 text-xs text-red-600 hover:text-red-700"
+                        >
+                          Remove image
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Upload an image file (optional). Image will be automatically resized to {cardDimensions ? `${cardDimensions.width}×${cardDimensions.height}px` : '428×380px'}.
+                    </p>
                   </div>
                 ) : (
                   <div>

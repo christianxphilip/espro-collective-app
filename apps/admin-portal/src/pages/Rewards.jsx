@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { rewardsAPI, adminAPI } from '../services/api';
+import { rewardsAPI, adminAPI, collectiblesAPI } from '../services/api';
 import Layout from '../components/Layout';
 import { formatEsproCoinsDisplay } from '../utils/format';
 import { getBaseApiUrl } from '../utils/api';
@@ -19,9 +19,14 @@ export default function Rewards() {
     isActive: true,
     claimableAtStore: false, // New: if true, reward is claimable at store (no voucher codes needed)
     voucherUploadRequired: false, // New: if true, voucher codes CSV is required
+    rewardType: 'voucher', // New: 'voucher', 'specificCardDesign', 'randomCardDesign'
+    cardDesignIds: [], // New: array of card design IDs
+    odooRewardId: '', // Odoo program_id for voucher rewards
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [previewVoucherImage, setPreviewVoucherImage] = useState(null);
+  const [showCardDesignsModal, setShowCardDesignsModal] = useState(false);
+  const [viewingReward, setViewingReward] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -44,6 +49,14 @@ export default function Rewards() {
 
   const rewards = rewardsResponse?.rewards || [];
   console.log('[Rewards] Current rewards state:', rewards);
+
+  // Fetch collectibles for card design selection
+  const { data: collectiblesResponse } = useQuery({
+    queryKey: ['collectibles'],
+    queryFn: () => collectiblesAPI.getAll().then((res) => res.data.collectibles),
+  });
+
+  const collectibles = collectiblesResponse || [];
 
   const createMutation = useMutation({
     mutationFn: (data) => rewardsAPI.create(data),
@@ -83,6 +96,17 @@ export default function Rewards() {
     },
   });
 
+  const syncVoucherMutation = useMutation({
+    mutationFn: () => adminAPI.syncVoucherStatus(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['admin-rewards']);
+      alert(`Voucher status sync completed! Processed: ${data.data.processed}, Updated: ${data.data.updated}, Errors: ${data.data.errors}`);
+    },
+    onError: (error) => {
+      alert(error.response?.data?.message || 'Failed to sync voucher status');
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -95,6 +119,9 @@ export default function Rewards() {
       isActive: true,
       claimableAtStore: false,
       voucherUploadRequired: false,
+      rewardType: 'voucher',
+      cardDesignIds: [],
+      odooRewardId: '',
     });
     setPreviewImage(null);
     setPreviewVoucherImage(null);
@@ -124,6 +151,9 @@ export default function Rewards() {
       isActive: reward.isActive !== undefined ? reward.isActive : true,
       claimableAtStore: reward.claimableAtStore || false,
       voucherUploadRequired: reward.voucherUploadRequired || false,
+      rewardType: reward.rewardType || 'voucher',
+      cardDesignIds: reward.cardDesignIds || [],
+      odooRewardId: reward.odooRewardId || '',
     });
     setPreviewImage(imageUrl);
     setPreviewVoucherImage(voucherImageUrl);
@@ -139,7 +169,20 @@ export default function Rewards() {
       isActive: formData.isActive,
       claimableAtStore: formData.claimableAtStore,
       voucherUploadRequired: formData.voucherUploadRequired,
+      rewardType: formData.rewardType,
+      cardDesignIds: formData.rewardType === 'voucher' ? [] : (Array.isArray(formData.cardDesignIds) ? formData.cardDesignIds : [formData.cardDesignIds]),
+      odooRewardId: formData.odooRewardId ? parseInt(formData.odooRewardId) : null,
     };
+
+    // Validate card design rewards
+    if (data.rewardType === 'specificCardDesign' && data.cardDesignIds.length !== 1) {
+      alert('Specific card design reward must have exactly one card design selected');
+      return;
+    }
+    if (data.rewardType === 'randomCardDesign' && data.cardDesignIds.length < 2) {
+      alert('Random card design reward must have at least two card designs selected');
+      return;
+    }
 
     if (editingReward) {
       updateMutation.mutate({ id: editingReward._id, data });
@@ -159,16 +202,40 @@ export default function Rewards() {
       <div className="p-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Rewards Management</h1>
-          <button
-            onClick={() => {
-              setShowForm(true);
-              setEditingReward(null);
-              resetForm();
-            }}
-            className="bg-espro-orange text-white px-6 py-2 rounded-lg font-semibold hover:bg-orange-600"
-          >
-            + Create Reward
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => syncVoucherMutation.mutate()}
+              disabled={syncVoucherMutation.isLoading}
+              className="bg-espro-teal text-white px-6 py-2 rounded-lg font-semibold hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {syncVoucherMutation.isLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Sync Voucher Status
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setShowForm(true);
+                setEditingReward(null);
+                resetForm();
+              }}
+              className="bg-espro-orange text-white px-6 py-2 rounded-lg font-semibold hover:bg-orange-600"
+            >
+              + Create Reward
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -204,6 +271,32 @@ export default function Rewards() {
                     </span>
                   </div>
                   {/* Voucher Count Display */}
+                  {/* Reward Type Badge */}
+                  {reward.rewardType && reward.rewardType !== 'voucher' && (
+                    <div className="mb-2">
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                        {reward.rewardType === 'specificCardDesign' ? 'Specific Card Design' : 'Random Card Design'}
+                      </span>
+                    </div>
+                  )}
+                  {/* Card Designs Info */}
+                  {reward.rewardType && reward.rewardType !== 'voucher' && reward.cardDesignIds && reward.cardDesignIds.length > 0 && (
+                    <div className="mb-3 p-2 bg-gray-50 rounded-lg">
+                      <div className="text-xs text-gray-600 mb-1">Card Designs Included</div>
+                      <div className="text-sm font-medium text-gray-700 mb-2">
+                        {reward.cardDesignIds.length} card design{reward.cardDesignIds.length !== 1 ? 's' : ''}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setViewingReward(reward);
+                          setShowCardDesignsModal(true);
+                        }}
+                        className="text-xs text-espro-orange hover:text-orange-600 font-medium"
+                      >
+                        View Card Designs →
+                      </button>
+                    </div>
+                  )}
                   {reward.hasVoucherCodes !== undefined && (
                     <div className="mb-3 p-2 bg-gray-50 rounded-lg">
                       <div className="text-xs text-gray-600 mb-1">Voucher Status</div>
@@ -269,6 +362,25 @@ export default function Rewards() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reward Type</label>
+                  <select
+                    value={formData.rewardType}
+                    onChange={(e) => {
+                      const newRewardType = e.target.value;
+                      setFormData({ 
+                        ...formData, 
+                        rewardType: newRewardType,
+                        cardDesignIds: [], // Reset card designs when changing type
+                      });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="voucher">Voucher Reward</option>
+                    <option value="specificCardDesign">Specific Card Design</option>
+                    <option value="randomCardDesign">Random Card Design</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Espro Coins Required</label>
                   <input
                     type="number"
@@ -280,6 +392,62 @@ export default function Rewards() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
+                {/* Card Design Selection (for card design rewards) */}
+                {(formData.rewardType === 'specificCardDesign' || formData.rewardType === 'randomCardDesign') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {formData.rewardType === 'specificCardDesign' ? 'Card Design' : 'Card Designs (Select Multiple)'}
+                      {formData.rewardType === 'specificCardDesign' ? ' (Select 1)' : ` (Select at least 2, currently: ${formData.cardDesignIds.length})`}
+                    </label>
+                    <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-2">
+                      {collectibles.filter(c => c.designType === 'reward' && c.isActive).map((collectible) => {
+                        const isSelected = formData.cardDesignIds.some(id => id === collectible._id || id.toString() === collectible._id.toString());
+                        return (
+                          <label
+                            key={collectible._id}
+                            className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50 ${
+                              isSelected ? 'bg-espro-orange/10' : ''
+                            }`}
+                          >
+                            <input
+                              type={formData.rewardType === 'specificCardDesign' ? 'radio' : 'checkbox'}
+                              name={formData.rewardType === 'specificCardDesign' ? 'cardDesign' : 'cardDesigns'}
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (formData.rewardType === 'specificCardDesign') {
+                                  setFormData({ ...formData, cardDesignIds: [collectible._id] });
+                                } else {
+                                  if (e.target.checked) {
+                                    setFormData({ 
+                                      ...formData, 
+                                      cardDesignIds: [...formData.cardDesignIds, collectible._id] 
+                                    });
+                                  } else {
+                                    setFormData({ 
+                                      ...formData, 
+                                      cardDesignIds: formData.cardDesignIds.filter(id => id !== collectible._id && id.toString() !== collectible._id.toString())
+                                    });
+                                  }
+                                }
+                              }}
+                            />
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">{collectible.name}</div>
+                              {collectible.description && (
+                                <div className="text-xs text-gray-500">{collectible.description}</div>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {formData.cardDesignIds.length > 0 && (
+                      <div className="mt-2 text-xs text-gray-600">
+                        Selected: {formData.cardDesignIds.length} card design{formData.cardDesignIds.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div>
                   <label className="flex items-center gap-2 mb-2">
                     <input
@@ -289,7 +457,7 @@ export default function Rewards() {
                     />
                     <span className="text-sm font-medium text-gray-700">Claimable at Store (No voucher codes needed)</span>
                   </label>
-                  {!formData.claimableAtStore && (
+                  {!formData.claimableAtStore && formData.rewardType === 'voucher' && (
                     <>
                       <label className="flex items-center gap-2 mb-2">
                         <input
@@ -317,6 +485,21 @@ export default function Rewards() {
                           Leave empty to keep existing voucher codes. Upload new CSV to add more codes.
                         </p>
                       )}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Odoo Reward ID (Program ID)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.odooRewardId}
+                          onChange={(e) => setFormData({ ...formData, odooRewardId: e.target.value })}
+                          placeholder="e.g., 26"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter the Odoo program_id to sync voucher claim status from Odoo. Leave empty if not using Odoo sync.
+                        </p>
+                      </div>
                     </>
                   )}
                 </div>
@@ -425,6 +608,90 @@ export default function Rewards() {
           </div>
         )}
       </div>
+
+      {/* Card Designs View Modal */}
+      {showCardDesignsModal && viewingReward && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowCardDesignsModal(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Card Designs in Reward</h2>
+              <button
+                onClick={() => setShowCardDesignsModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="mb-4">
+              <div className="text-lg font-semibold text-gray-900">{viewingReward.title}</div>
+              <div className="text-sm text-gray-600">
+                {viewingReward.rewardType === 'specificCardDesign' 
+                  ? 'Specific Card Design Reward' 
+                  : 'Random Card Design Reward'}
+              </div>
+            </div>
+            {viewingReward.cardDesignIds && viewingReward.cardDesignIds.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {viewingReward.cardDesignIds.map((cardDesignId) => {
+                  const cardDesign = collectibles.find(c => c._id === cardDesignId || c._id.toString() === cardDesignId.toString());
+                  if (!cardDesign) return null;
+                  
+                  const imageUrl = cardDesign.imageUrl 
+                    ? (cardDesign.imageUrl.startsWith('http') 
+                        ? cardDesign.imageUrl 
+                        : `${getBaseApiUrl()}${cardDesign.imageUrl}`)
+                    : null;
+                  
+                  const cardStyle =
+                    cardDesign.designType === 'image' && imageUrl
+                      ? {
+                          backgroundImage: `url(${imageUrl})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat',
+                        }
+                      : cardDesign.designType === 'solid' && cardDesign.solidColor
+                      ? {
+                          background: cardDesign.solidColor,
+                        }
+                      : {
+                          background: `linear-gradient(135deg, ${cardDesign.gradientColors?.primary || '#f66633'} 0%, ${cardDesign.gradientColors?.secondary || '#ff8c64'} 100%)`,
+                        };
+
+                  const textColor = cardDesign.textColor || '#FFFFFF';
+
+                  return (
+                    <div key={cardDesign._id} className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
+                      <div className="h-32 p-3" style={{ ...cardStyle, color: textColor }}>
+                        <div className="text-xs opacity-90" style={{ color: textColor }}>ESPRO</div>
+                        <div className="text-lg font-bold mt-1" style={{ color: textColor }}>Card</div>
+                      </div>
+                      <div className="p-3">
+                        <div className="font-semibold text-sm text-gray-900">{cardDesign.name}</div>
+                        {cardDesign.description && (
+                          <div className="text-xs text-gray-600 mt-1 line-clamp-2">{cardDesign.description}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">No card designs found</div>
+            )}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowCardDesignsModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

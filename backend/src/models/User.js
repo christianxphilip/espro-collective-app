@@ -53,6 +53,10 @@ const userSchema = new mongoose.Schema({
     ref: 'Collectible',
     default: null,
   },
+  unlockedCollectibles: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Collectible',
+  }],
   isAdmin: {
     type: Boolean,
     default: false,

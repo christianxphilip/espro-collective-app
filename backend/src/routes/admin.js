@@ -312,6 +312,27 @@ router.post('/sync-odoo-points', async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/sync-voucher-status
+// @desc    Manually sync voucher claim status from Odoo
+// @access  Private/Admin
+router.post('/sync-voucher-status', async (req, res) => {
+  try {
+    console.log('[Admin API] Manual voucher claim status sync requested');
+    const { syncVoucherClaimStatus } = await import('../services/odooVoucherSync.js');
+    const result = await syncVoucherClaimStatus();
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error('[Admin API] Voucher claim status sync error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 // @route   POST /api/admin/loyalty-ids-upload
 // @desc    Upload CSV file with loyalty IDs
 // @access  Private/Admin

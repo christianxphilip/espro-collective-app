@@ -119,6 +119,12 @@ router.post('/', upload.fields([
 
     // Handle front card image upload
     if (req.files && req.files.image && req.files.image[0]) {
+      console.log('[Collectibles] Processing image upload:', {
+        designType,
+        filename: req.files.image[0].filename,
+        originalname: req.files.image[0].originalname
+      });
+      
       const file = req.files.image[0];
       const originalPath = file.path;
       const fileExt = path.extname(file.originalname).toLowerCase();
@@ -127,6 +133,7 @@ router.post('/', upload.fields([
       if (isSvg) {
         // SVG files don't need resizing (they're vector graphics)
         collectibleData.imageUrl = `/uploads/collectibles/${file.filename}`;
+        console.log('[Collectibles] SVG image saved:', collectibleData.imageUrl);
       } else {
         // Resize raster images to card dimensions
         const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-${file.filename}`);
@@ -136,14 +143,33 @@ router.post('/', upload.fields([
           // Delete original and use resized version
           fs.unlinkSync(originalPath);
           collectibleData.imageUrl = `/uploads/collectibles/resized-${file.filename}`;
+          console.log('[Collectibles] Resized image saved:', collectibleData.imageUrl);
         } else {
           // If resize fails, use original (but warn)
           collectibleData.imageUrl = `/uploads/collectibles/${file.filename}`;
+          console.log('[Collectibles] Original image saved (resize failed):', collectibleData.imageUrl);
         }
       }
       
-      collectibleData.designType = 'image';
+      // Only override designType to 'image' if it wasn't explicitly set to 'reward' or 'solid'
+      // Reward type can have images but should stay as 'reward'
+      if (designType && designType !== 'reward' && designType !== 'solid') {
+        // If designType was gradient or not set, change to image
+        if (!designType || designType === 'gradient') {
+          collectibleData.designType = 'image';
+        }
+      } else if (!designType) {
+        // If no designType was specified, set to image
+        collectibleData.designType = 'image';
+      }
       collectibleData.isAIGenerated = false;
+      console.log('[Collectibles] Image processed, designType:', collectibleData.designType);
+    } else {
+      console.log('[Collectibles] No image file in request:', {
+        hasFiles: !!req.files,
+        hasImage: !!(req.files && req.files.image),
+        designType
+      });
     }
     
     // Handle back card image upload
@@ -175,13 +201,19 @@ router.post('/', upload.fields([
       collectibleData.backCardImageUrl = backCardImageUrl;
     } 
     // Handle AI-generated image URL (from body)
-    else if (imageUrl && designType === 'image') {
+    // Allow AI images for both 'image' and 'reward' types
+    if (imageUrl && (designType === 'image' || designType === 'reward')) {
       collectibleData.imageUrl = imageUrl;
-      collectibleData.designType = 'image';
+      // Only change designType to 'image' if it wasn't explicitly set
+      if (!designType || (designType !== 'reward' && designType !== 'solid')) {
+        if (designType === 'gradient' || !designType) {
+          collectibleData.designType = 'image';
+        }
+      }
       collectibleData.isAIGenerated = true;
     } 
-    // Handle gradient colors
-    else if (designType === 'gradient' && primaryColor && secondaryColor) {
+    // Handle gradient colors (for gradient and reward types)
+    if ((designType === 'gradient' || designType === 'reward') && primaryColor && secondaryColor) {
       collectibleData.gradientColors = {
         primary: primaryColor,
         secondary: secondaryColor,
@@ -189,15 +221,24 @@ router.post('/', upload.fields([
       collectibleData.isAIGenerated = false;
     }
     // Handle solid color
-    else if (designType === 'solid' && (primaryColor || solidColor)) {
+    if (designType === 'solid' && (primaryColor || solidColor)) {
       collectibleData.solidColor = primaryColor || solidColor;
       collectibleData.isAIGenerated = false;
     }
-    // Handle solid color
-    else if (designType === 'solid' && primaryColor) {
-      collectibleData.solidColor = primaryColor;
-      collectibleData.isAIGenerated = false;
+    
+    // For reward type, ensure lifetimeEsproCoinsRequired is 0 (not required)
+    if (designType === 'reward') {
+      collectibleData.lifetimeEsproCoinsRequired = 0;
     }
+
+    console.log('[Collectibles] Final collectibleData before save:', {
+      name: collectibleData.name,
+      designType: collectibleData.designType,
+      hasImageUrl: !!collectibleData.imageUrl,
+      imageUrl: collectibleData.imageUrl,
+      hasGradientColors: !!collectibleData.gradientColors,
+      lifetimeEsproCoinsRequired: collectibleData.lifetimeEsproCoinsRequired
+    });
 
     // If this is set as default, unset other defaults
     if (collectibleData.isDefault) {
@@ -205,6 +246,13 @@ router.post('/', upload.fields([
     }
 
     const collectible = await Collectible.create(collectibleData);
+    
+    console.log('[Collectibles] Collectible created:', {
+      _id: collectible._id,
+      name: collectible.name,
+      designType: collectible.designType,
+      imageUrl: collectible.imageUrl
+    });
 
     res.status(201).json({
       success: true,
@@ -288,17 +336,22 @@ router.put('/:id', upload.fields([
         }
       }
       
-      collectible.designType = 'image';
+      // Only override designType to 'image' if it wasn't explicitly set to something else
+      if (!designType || designType === 'gradient' || designType === 'solid') {
+        collectible.designType = 'image';
+      }
       collectible.isAIGenerated = false;
     } 
     // Handle AI-generated image URL (from body)
-    else if (imageUrl && designType === 'image') {
+    if (imageUrl && designType === 'image') {
       collectible.imageUrl = imageUrl;
-      collectible.designType = 'image';
+      if (!designType || designType === 'gradient' || designType === 'solid') {
+        collectible.designType = 'image';
+      }
       collectible.isAIGenerated = true;
     } 
-    // Handle gradient colors
-    else if (designType === 'gradient' && primaryColor && secondaryColor) {
+    // Handle gradient colors (for gradient and reward types)
+    if ((designType === 'gradient' || designType === 'reward') && primaryColor && secondaryColor) {
       collectible.gradientColors = {
         primary: primaryColor,
         secondary: secondaryColor,
@@ -306,9 +359,14 @@ router.put('/:id', upload.fields([
       collectible.isAIGenerated = false;
     } 
     // Handle solid color
-    else if (designType === 'solid' && (primaryColor || solidColor)) {
+    if (designType === 'solid' && (primaryColor || solidColor)) {
       collectible.solidColor = primaryColor || solidColor;
       collectible.isAIGenerated = false;
+    }
+    
+    // For reward type, ensure lifetimeEsproCoinsRequired is 0 (not required)
+    if (designType === 'reward') {
+      collectible.lifetimeEsproCoinsRequired = 0;
     }
     
     // Handle back card image upload

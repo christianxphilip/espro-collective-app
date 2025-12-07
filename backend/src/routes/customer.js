@@ -18,7 +18,10 @@ router.use(protect);
 router.get('/profile', async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
-      .populate('activeCardDesign')
+      .populate({
+        path: 'activeCardDesign',
+        select: 'name description imageUrl designType gradientColors solidColor textColor backCardColor backCardImageUrl',
+      })
       .select('-password');
 
     res.json({
@@ -64,6 +67,10 @@ router.get('/rewards', async (req, res) => {
   try {
     const rewards = await Reward.find({ isActive: true })
       .select('-voucherCodes -voucherCode') // Exclude voucher codes for security
+      .populate({
+        path: 'cardDesignIds',
+        select: 'name description imageUrl designType gradientColors solidColor textColor',
+      })
       .sort({ esproCoinsRequired: 1 });
 
     // Add available count for rewards with voucher codes (without exposing the codes)
@@ -104,11 +111,26 @@ router.get('/collectibles', async (req, res) => {
     const user = await User.findById(req.user._id);
     const collectibles = await Collectible.find({ isActive: true }).sort({ lifetimeEsproCoinsRequired: 1 });
 
+    // Get user's unlocked collectibles (from unlockedCollectibles array)
+    const userUnlockedCollectibles = user.unlockedCollectibles || [];
+
     // Add unlocked status for each collectible
-    const collectiblesWithStatus = collectibles.map(collectible => ({
-      ...collectible.toObject(),
-      isUnlocked: user.lifetimeEsproCoins >= collectible.lifetimeEsproCoinsRequired,
-    }));
+    const collectiblesWithStatus = collectibles.map(collectible => {
+      let isUnlocked = false;
+      
+      if (collectible.designType === 'reward') {
+        // For reward-type designs, check if user has unlocked it via claims
+        isUnlocked = userUnlockedCollectibles.some(id => id.toString() === collectible._id.toString());
+      } else {
+        // For regular designs, check lifetime coins
+        isUnlocked = user.lifetimeEsproCoins >= collectible.lifetimeEsproCoinsRequired;
+      }
+
+      return {
+        ...collectible.toObject(),
+        isUnlocked,
+      };
+    });
 
     res.json({
       success: true,
@@ -138,7 +160,17 @@ router.put('/collectibles/:id/activate', async (req, res) => {
     }
 
     // Check if user has unlocked this design
-    if (user.lifetimeEsproCoins < collectible.lifetimeEsproCoinsRequired) {
+    let isUnlocked = false;
+    if (collectible.designType === 'reward') {
+      // For reward-type designs, check unlockedCollectibles array
+      const userUnlockedCollectibles = user.unlockedCollectibles || [];
+      isUnlocked = userUnlockedCollectibles.some(id => id.toString() === collectible._id.toString());
+    } else {
+      // For regular designs, check lifetime coins
+      isUnlocked = user.lifetimeEsproCoins >= collectible.lifetimeEsproCoinsRequired;
+    }
+
+    if (!isUnlocked) {
       return res.status(403).json({
         success: false,
         message: 'You have not unlocked this card design yet',
@@ -149,10 +181,18 @@ router.put('/collectibles/:id/activate', async (req, res) => {
     user.activeCardDesign = collectible._id;
     await user.save();
 
+    // Return user with fully populated activeCardDesign
+    const updatedUser = await User.findById(user._id)
+      .populate({
+        path: 'activeCardDesign',
+        select: 'name description imageUrl designType gradientColors solidColor textColor backCardColor backCardImageUrl',
+      })
+      .select('-password');
+
     res.json({
       success: true,
       message: 'Card design activated',
-      user: await User.findById(user._id).populate('activeCardDesign'),
+      user: updatedUser,
     });
   } catch (error) {
     res.status(500).json({
@@ -225,15 +265,22 @@ router.get('/vouchers', async (req, res) => {
       })
       .sort({ claimedAt: -1 });
 
-    const vouchers = claims.map(claim => ({
-      _id: claim._id,
-      reward: claim.reward,
-      voucherCode: claim.voucherCode, // Only return the voucher code that belongs to this user
-      esproCoinsDeducted: claim.esproCoinsDeducted,
-      isUsed: claim.isUsed || false,
-      usedAt: claim.usedAt,
-      claimedAt: claim.claimedAt,
-    }));
+    // Filter out card design rewards - only include rewards with voucher codes
+    const vouchers = claims
+      .filter(claim => {
+        // Only include claims that have a voucherCode (not card design rewards)
+        // Card design rewards have awardedCardDesign instead of voucherCode
+        return claim.voucherCode !== null && claim.voucherCode !== undefined;
+      })
+      .map(claim => ({
+        _id: claim._id,
+        reward: claim.reward,
+        voucherCode: claim.voucherCode, // Only return the voucher code that belongs to this user
+        esproCoinsDeducted: claim.esproCoinsDeducted,
+        isUsed: claim.isUsed || false,
+        usedAt: claim.usedAt,
+        claimedAt: claim.claimedAt,
+      }));
 
     const available = vouchers.filter(v => !v.isUsed);
     const used = vouchers.filter(v => v.isUsed);

@@ -8,6 +8,7 @@ import { getBaseApiUrl } from '../utils/api';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import RandomCardReveal from '../components/RandomCardReveal';
 
 export default function Rewards() {
   const { user, fetchUser, updateUser } = useAuthStore();
@@ -15,12 +16,23 @@ export default function Rewards() {
   const [selectedReward, setSelectedReward] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' });
+  const [showRandomReveal, setShowRandomReveal] = useState(false);
+  const [revealedCardDesign, setRevealedCardDesign] = useState(null);
+  const [revealReward, setRevealReward] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: rewards, isLoading } = useQuery({
     queryKey: ['rewards'],
     queryFn: () => customerAPI.getRewards().then((res) => res.data.rewards),
   });
+
+  // Fetch collectibles for card design rewards
+  const { data: collectiblesResponse } = useQuery({
+    queryKey: ['collectibles'],
+    queryFn: () => customerAPI.getCollectibles().then((res) => res.data.collectibles),
+  });
+
+  const collectibles = collectiblesResponse || [];
 
   // Pull to refresh
   const { isRefreshing, pullDistance } = usePullToRefresh(
@@ -43,13 +55,262 @@ export default function Rewards() {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries(['rewards']);
       queryClient.invalidateQueries(['profile']);
+      queryClient.invalidateQueries(['collectibles']);
+      
       setSelectedReward(null);
       setShowConfirmModal(false);
-      setToast({
-        isOpen: true,
-        message: 'Reward claimed successfully!',
-        type: 'success',
+
+      // Handle different reward types
+      const claim = data?.data?.claim;
+      const reward = claim?.reward || selectedReward;
+      const rewardType = reward?.rewardType || 'voucher';
+      
+      // Only check for awardedCardDesign if it's a card design reward
+      const isCardDesignReward = rewardType === 'specificCardDesign' || rewardType === 'randomCardDesign';
+      const awardedCardDesign = data?.data?.awardedCardDesign;
+      
+      // For card design rewards, validate that we have awardedCardDesign
+      if (isCardDesignReward) {
+        // CRITICAL: Use data.data.awardedCardDesign as PRIMARY source (direct from API response)
+        // This is the ACTUAL card that was just awarded by the backend
+        // DO NOT use claim.awardedCardDesign as it might be from an old claim
+        
+        // Log all sources to debug ID mismatch
+        console.log('[Rewards] API Response Analysis - CRITICAL:', {
+          dataAwardedCardDesign: data?.data?.awardedCardDesign ? {
+            _id: data.data.awardedCardDesign._id?.toString(),
+            name: data.data.awardedCardDesign.name,
+            imageUrl: data.data.awardedCardDesign.imageUrl
+          } : null,
+          claimAwardedCardDesign: claim?.awardedCardDesign ? {
+            _id: claim.awardedCardDesign._id?.toString(),
+            name: claim.awardedCardDesign.name
+          } : null,
+          finalAwardedCardDesign: awardedCardDesign ? {
+            _id: awardedCardDesign._id?.toString(),
+            name: awardedCardDesign.name
+          } : null,
+          usingDataAwardedCardDesign: !!data?.data?.awardedCardDesign,
+          usingClaimAwardedCardDesign: !data?.data?.awardedCardDesign && !!claim?.awardedCardDesign
+        });
+        
+        // CRITICAL: If we don't have awardedCardDesign from data.data, this is an error for card design rewards
+        if (!awardedCardDesign) {
+          console.error('[Rewards] CRITICAL: No awardedCardDesign in API response for card design reward!', {
+            data: data?.data,
+            claim: claim,
+            rewardType
+          });
+          setToast({
+            isOpen: true,
+            message: 'Error: Could not determine awarded card design. Please refresh and try again.',
+            type: 'error',
+          });
+          return;
+        }
+      } else {
+        // For voucher rewards, just show success message
+        setToast({
+          isOpen: true,
+          message: 'Reward claimed successfully!',
+          type: 'success',
+        });
+        return;
+      }
+
+      console.log('[Rewards] Claim success - Full API Response:', {
+        claim: claim ? {
+          _id: claim._id?.toString(),
+          awardedCardDesign: claim.awardedCardDesign ? {
+            _id: claim.awardedCardDesign._id?.toString(),
+            name: claim.awardedCardDesign.name
+          } : null
+        } : null,
+        awardedCardDesignFromData: awardedCardDesign ? {
+          _id: awardedCardDesign._id?.toString(),
+          name: awardedCardDesign.name,
+          imageUrl: awardedCardDesign.imageUrl
+        } : null,
+        reward: reward ? {
+          _id: reward._id?.toString(),
+          title: reward.title,
+          rewardType: reward.rewardType,
+          cardDesignIds: reward.cardDesignIds
+        } : null
       });
+
+      if (awardedCardDesign && reward) {
+        // CRITICAL: Use the awardedCardDesign directly from the API response as the source of truth
+        // The API response contains the actual card that was awarded - DO NOT use collectibles or reward pool
+        let fullCardDesign = null;
+        if (typeof awardedCardDesign === 'object' && awardedCardDesign._id) {
+          // It's already a populated object from the API with all fields
+          // This is the ACTUAL card that was awarded - use it directly, NO EXCEPTIONS
+          fullCardDesign = awardedCardDesign;
+          
+          const awardedCardId = awardedCardDesign._id?.toString();
+          console.log('[Rewards] Using awardedCardDesign directly from API - CRITICAL:', {
+            _id: awardedCardId,
+            name: awardedCardDesign.name,
+            imageUrl: awardedCardDesign.imageUrl,
+            designType: awardedCardDesign.designType
+          });
+          
+          // Optionally merge with collectibles data ONLY for missing fields (not to replace the card)
+          // But keep the API response as the primary source - DO NOT replace the awarded card
+          const foundInCollectibles = collectibles.find(
+            c => c._id.toString() === awardedCardId
+          );
+          if (foundInCollectibles) {
+            // Merge but prioritize API response fields (awardedCardDesign comes last to override)
+            // This ensures the API response is the source of truth
+            fullCardDesign = { ...foundInCollectibles, ...awardedCardDesign };
+            console.log('[Rewards] Merged with collectibles data, API response prioritized');
+            
+            // CRITICAL: Verify the ID matches after merge - if not, use API response directly
+            const mergedId = fullCardDesign._id?.toString();
+            if (mergedId !== awardedCardId) {
+              console.error('[Rewards] CRITICAL: ID mismatch after merge! Using API response directly.', {
+                mergedId,
+                awardedCardId,
+                fullCardDesignName: fullCardDesign.name,
+                awardedCardDesignName: awardedCardDesign.name
+              });
+              // Use awardedCardDesign directly if merge caused ID change
+              fullCardDesign = awardedCardDesign;
+            } else {
+              console.log('[Rewards] Merge successful, ID verified:', mergedId);
+            }
+          } else {
+            console.log('[Rewards] Card not found in collectibles, using API response directly');
+          }
+        } else {
+          // It's just an ID - find in collectibles
+          const designId = awardedCardDesign._id || awardedCardDesign;
+          fullCardDesign = collectibles.find(
+            c => c._id.toString() === designId.toString()
+          );
+          console.log('[Rewards] Found card design in collectibles:', {
+            designId: designId?.toString(),
+            found: !!fullCardDesign,
+            foundId: fullCardDesign?._id?.toString()
+          });
+        }
+        
+        // CRITICAL: Final verification - ensure fullCardDesign matches awardedCardDesign from API
+        if (fullCardDesign && awardedCardDesign && awardedCardDesign._id) {
+          const fullCardId = fullCardDesign._id?.toString();
+          const awardedCardId = awardedCardDesign._id?.toString();
+          if (fullCardId !== awardedCardId) {
+            console.error('[Rewards] CRITICAL MISMATCH: fullCardDesign does not match awardedCardDesign!', {
+              fullCardId,
+              fullCardName: fullCardDesign.name,
+              awardedCardId,
+              awardedCardName: awardedCardDesign.name
+            });
+            // Use awardedCardDesign directly as it's the source of truth
+            fullCardDesign = awardedCardDesign;
+            console.log('[Rewards] Corrected: Using awardedCardDesign directly from API');
+          }
+        }
+
+        console.log('[Rewards] Full card design found - FINAL:', {
+          fullCardDesign: fullCardDesign ? {
+            _id: fullCardDesign._id?.toString(),
+            name: fullCardDesign.name,
+            imageUrl: fullCardDesign.imageUrl,
+            designType: fullCardDesign.designType
+          } : null,
+          awardedCardDesignFromAPI: awardedCardDesign ? {
+            _id: awardedCardDesign._id?.toString(),
+            name: awardedCardDesign.name,
+            imageUrl: awardedCardDesign.imageUrl
+          } : null,
+          claimAwardedCardDesign: claim?.awardedCardDesign ? {
+            _id: claim.awardedCardDesign._id?.toString(),
+            name: claim.awardedCardDesign.name
+          } : null,
+          dataAwardedCardDesign: data?.data?.awardedCardDesign ? {
+            _id: data.data.awardedCardDesign._id?.toString(),
+            name: data.data.awardedCardDesign.name
+          } : null
+        });
+
+        // Show randomizer animation for random card design rewards
+        if (reward.rewardType === 'randomCardDesign') {
+          console.log('[Rewards] Setting up random reveal:', {
+            fullCardDesign,
+            reward,
+            cardDesignIds: reward.cardDesignIds,
+            collectiblesLength: collectibles.length,
+            collectibles: collectibles.map(c => ({ id: c._id, name: c.name }))
+          });
+          
+          if (fullCardDesign && reward.cardDesignIds && reward.cardDesignIds.length > 0) {
+            // CRITICAL: Final verification before setting revealed card
+            const finalCardId = fullCardDesign._id?.toString();
+            const apiCardId = awardedCardDesign._id?.toString();
+            
+            console.log('[Rewards] All data present, opening random reveal modal - CRITICAL CHECK:', {
+              fullCardDesign: {
+                _id: finalCardId,
+                name: fullCardDesign.name
+              },
+              awardedCardDesignFromAPI: {
+                _id: apiCardId,
+                name: awardedCardDesign.name
+              },
+              idsMatch: finalCardId === apiCardId,
+              willUse: finalCardId === apiCardId ? 'fullCardDesign' : 'awardedCardDesign (corrected)'
+            });
+            
+            // CRITICAL: If IDs don't match, use awardedCardDesign directly from API
+            if (finalCardId !== apiCardId) {
+              console.error('[Rewards] CRITICAL: ID mismatch before setting revealed card! Using API response.', {
+                fullCardId: finalCardId,
+                apiCardId: apiCardId
+              });
+              setRevealedCardDesign(awardedCardDesign); // Use API response directly
+            } else {
+              setRevealedCardDesign(fullCardDesign);
+            }
+            setRevealReward(reward);
+            setShowRandomReveal(true);
+          } else {
+            // Fallback if data is missing
+            console.error('[Rewards] Missing data for random reveal:', { 
+              fullCardDesign, 
+              reward,
+              hasCardDesignIds: !!reward.cardDesignIds,
+              cardDesignIdsLength: reward.cardDesignIds?.length
+            });
+            setToast({
+              isOpen: true,
+              message: `Reward claimed! You unlocked: ${fullCardDesign?.name || 'Card Design'}`,
+              type: 'success',
+            });
+          }
+        } else if (reward.rewardType === 'specificCardDesign') {
+          // For specific card design, just show success message with card name
+          setToast({
+            isOpen: true,
+            message: `Reward claimed! You unlocked: ${fullCardDesign.name || awardedCardDesign.name || 'Card Design'}`,
+            type: 'success',
+          });
+        } else {
+          setToast({
+            isOpen: true,
+            message: 'Reward claimed successfully!',
+            type: 'success',
+          });
+        }
+      } else {
+        setToast({
+          isOpen: true,
+          message: 'Reward claimed successfully!',
+          type: 'success',
+        });
+      }
     },
     onError: (error) => {
       setShowConfirmModal(false);
@@ -136,9 +397,10 @@ export default function Rewards() {
             {rewards.map((reward) => {
               const canClaim = user.esproCoins >= reward.esproCoinsRequired;
               const isStoreClaimable = reward.claimableAtStore === true;
+              const isCardDesignReward = reward.rewardType === 'specificCardDesign' || reward.rewardType === 'randomCardDesign';
               const availableVoucherCount = reward.availableVoucherCount ?? (reward.quantity === -1 ? -1 : reward.quantity);
               const hasAvailableVouchers = availableVoucherCount === -1 || availableVoucherCount > 0;
-              const canClaimReward = canClaim && hasAvailableVouchers && !isStoreClaimable;
+              const canClaimReward = canClaim && (hasAvailableVouchers || isCardDesignReward) && !isStoreClaimable;
               const borderColor = canClaimReward ? (reward.esproCoinsRequired <= 500 ? '#f66633' : '#3a878c') : '#e5e5e5';
               
               // Construct full image URL
@@ -171,28 +433,44 @@ export default function Rewards() {
                         }}
                       />
                     )}
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
-                          <div className="font-semibold text-lg text-gray-900 mb-1">{reward.title}</div>
-                          <div className="text-sm text-gray-600">{reward.description}</div>
-                          {reward.hasVoucherCodes && availableVoucherCount >= 0 && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {availableVoucherCount === 0 ? (
-                                <span className="text-red-600 font-medium">Out of stock</span>
-                              ) : (
-                                <span>{availableVoucherCount} voucher{availableVoucherCount !== 1 ? 's' : ''} available</span>
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="font-semibold text-lg text-gray-900">{reward.title}</div>
+                              </div>
+                              <div className="text-sm text-gray-600">{reward.description}</div>
+                              {isCardDesignReward && reward.cardDesignIds && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {reward.rewardType === 'randomCardDesign' 
+                                    ? `${reward.cardDesignIds.length} card designs in pool`
+                                    : '1 specific card design'}
+                                </div>
+                              )}
+                              {!isCardDesignReward && reward.hasVoucherCodes && availableVoucherCount >= 0 && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {availableVoucherCount === 0 ? (
+                                    <span className="text-red-600 font-medium">Out of stock</span>
+                                  ) : (
+                                    <span>{availableVoucherCount} voucher{availableVoucherCount !== 1 ? 's' : ''} available</span>
+                                  )}
+                                </div>
                               )}
                             </div>
-                          )}
-                        </div>
-                        {isStoreClaimable ? (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium flex-shrink-0">Store Only</span>
-                        ) : canClaimReward ? (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium flex-shrink-0">Available</span>
-                        ) : (
-                          <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium flex-shrink-0">Locked</span>
-                        )}
+                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                              {isStoreClaimable ? (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Store Only</span>
+                              ) : canClaimReward ? (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Available</span>
+                              ) : (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium">Locked</span>
+                              )}
+                              {isCardDesignReward && (
+                                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium whitespace-nowrap">
+                                  {reward.rewardType === 'specificCardDesign' ? 'Card Design' : 'Random Card'}
+                                </span>
+                              )}
+                            </div>
                       </div>
                       <div className="flex justify-between items-center mt-4">
                         <div className="flex items-center gap-2">
@@ -266,6 +544,146 @@ export default function Rewards() {
         type={toast.type}
         onClose={() => setToast({ ...toast, isOpen: false })}
       />
+
+      {/* Random Card Reveal Modal */}
+      {showRandomReveal && (() => {
+        // Map cardDesignIds to full collectible objects
+        // cardDesignIds from the API might be populated objects or just IDs
+        let mappedCardDesigns = revealReward && revealReward.cardDesignIds && revealReward.cardDesignIds.length > 0
+          ? revealReward.cardDesignIds
+              .map(idOrObj => {
+                // Handle both populated objects and just IDs
+                let designId;
+                let populatedObj = null;
+                
+                if (typeof idOrObj === 'object' && idOrObj._id) {
+                  // It's a populated object from the API
+                  designId = idOrObj._id;
+                  populatedObj = idOrObj;
+                } else {
+                  // It's just an ID
+                  designId = idOrObj._id || idOrObj;
+                }
+                
+                // Try to find in collectibles array first (most up-to-date)
+                const found = collectibles.find(c => 
+                  c._id.toString() === designId.toString()
+                );
+                
+                // If found, use it (has all fields including imageUrl)
+                if (found) {
+                  return found;
+                }
+                
+                // If not found but we have a populated object, use it
+                if (populatedObj) {
+                  return populatedObj;
+                }
+                
+                // Otherwise, return null (will be filtered out)
+                return null;
+              })
+              .filter(Boolean)
+          : [];
+        
+        // CRITICAL: Ensure revealedCardDesign is always in the array and is the source of truth
+        // The revealedCardDesign is the ACTUAL card awarded by the API - it must be used, not a card from the pool
+        if (revealedCardDesign && revealedCardDesign._id) {
+          const revealedId = revealedCardDesign._id.toString();
+          const existingIndex = mappedCardDesigns.findIndex(c => 
+            c && c._id && c._id.toString() === revealedId
+          );
+          
+          console.log('[Rewards] Ensuring revealed card in mapped designs:', {
+            revealedId,
+            revealedCardName: revealedCardDesign.name,
+            existingIndex,
+            mappedCardDesignsBefore: mappedCardDesigns.map(c => ({ id: c._id?.toString(), name: c.name }))
+          });
+          
+          if (existingIndex !== -1) {
+            // Replace with the full revealedCardDesign (has all fields including imageUrl from API)
+            // This ensures we use the API response as the source of truth, not a card from the pool
+            mappedCardDesigns[existingIndex] = revealedCardDesign;
+            console.log('[Rewards] Replaced existing card at index:', existingIndex, 'with actual awarded card:', revealedCardDesign.name);
+          } else {
+            // Add the revealedCardDesign to the array (it's the awarded card from API)
+            // This is the ACTUAL card that was awarded, not a card from the pool
+            mappedCardDesigns.push(revealedCardDesign);
+            console.log('[Rewards] Added revealed card to array at index:', mappedCardDesigns.length - 1, 'Actual awarded card:', revealedCardDesign.name);
+          }
+          
+          // CRITICAL: Verify the revealed card is in the array with the correct ID
+          const verifiedIndex = mappedCardDesigns.findIndex(c => 
+            c && c._id && c._id.toString() === revealedId
+          );
+          if (verifiedIndex === -1) {
+            console.error('[Rewards] CRITICAL: Revealed card not found in mapped designs after ensuring!', {
+              revealedId,
+              mappedCardDesignsIds: mappedCardDesigns.map(c => c._id?.toString())
+            });
+          } else {
+            console.log('[Rewards] Verified revealed card is at index:', verifiedIndex);
+          }
+        } else if (revealedCardDesign && !mappedCardDesigns.length) {
+          // If no mapped designs but we have revealedCardDesign, use it
+          mappedCardDesigns = [revealedCardDesign];
+          console.log('[Rewards] Using revealed card as only card in array');
+        }
+        
+        console.log('[Rewards] Rendering RandomCardReveal:', {
+          showRandomReveal,
+          revealReward: revealReward ? { 
+            _id: revealReward._id, 
+            cardDesignIds: revealReward.cardDesignIds,
+            cardDesignIdsLength: revealReward.cardDesignIds?.length 
+          } : null,
+          revealedCardDesign: revealedCardDesign ? { 
+            _id: revealedCardDesign._id, 
+            name: revealedCardDesign.name,
+            imageUrl: revealedCardDesign.imageUrl,
+            designType: revealedCardDesign.designType
+          } : null,
+          mappedCardDesignsLength: mappedCardDesigns.length,
+          mappedCardDesigns: mappedCardDesigns.map(c => ({ 
+            id: c._id, 
+            name: c.name,
+            imageUrl: c.imageUrl,
+            designType: c.designType,
+            gradientColors: c.gradientColors,
+            solidColor: c.solidColor,
+            textColor: c.textColor
+          })),
+          collectiblesLength: collectibles.length,
+          collectiblesSample: collectibles.slice(0, 2).map(c => ({
+            id: c._id,
+            name: c.name,
+            imageUrl: c.imageUrl,
+            designType: c.designType
+          }))
+        });
+        
+        return (
+          <RandomCardReveal
+            isOpen={showRandomReveal}
+            onClose={() => {
+              console.log('[Rewards] Closing random reveal modal');
+              setShowRandomReveal(false);
+              setRevealedCardDesign(null);
+              setRevealReward(null);
+            }}
+            cardDesigns={mappedCardDesigns}
+            revealedCardDesign={revealedCardDesign}
+            reward={revealReward}
+            onRevealComplete={async () => {
+              console.log('[Rewards] Random reveal complete, refreshing data');
+              // User data is already updated from claimMutation.onSuccess
+              // Collectibles are already invalidated in claimMutation.onSuccess
+              await fetchUser();
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

@@ -59,6 +59,20 @@ const rewardSchema = new mongoose.Schema({
     type: Boolean,
     default: false, // If true, reward is claimable at store (no voucher codes needed)
   },
+  rewardType: {
+    type: String,
+    enum: ['voucher', 'specificCardDesign', 'randomCardDesign'],
+    default: 'voucher',
+  },
+  cardDesignIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Collectible',
+  }],
+  odooRewardId: {
+    type: Number,
+    default: null, // Odoo program_id for voucher rewards
+    sparse: true,
+  },
   isActive: {
     type: Boolean,
     default: true,

@@ -29,7 +29,7 @@ export default function WalletCard() {
 
   // Front card style
   const cardStyle =
-    cardDesign.designType === 'image' && imageUrl
+    (cardDesign.designType === 'image' || cardDesign.designType === 'reward') && imageUrl
       ? { 
           backgroundImage: `url(${imageUrl})`, 
           backgroundSize: 'cover', 
@@ -95,7 +95,7 @@ export default function WalletCard() {
                 
                 <div className="flex-1 min-h-0"></div>
                 
-                <div className="mt-auto pt-4 flex-shrink-0" style={{ borderTop: `1px solid ${textColor}33` }}>
+                <div className="mt-auto pt-4 flex-shrink-0" style={{ borderTop: cardDesign.designType === 'image' || cardDesign.designType === 'reward' ? 'none' : `1px solid ${textColor}33` }}>
                   <div className="text-sm opacity-90 mb-2" style={{ color: textColor }}>Balance</div>
                   <div className="text-5xl font-bold tracking-tight" style={{ color: textColor }}>{formatEsproCoinsDisplay(user?.esproCoins || 0)}</div>
                   <div className="text-xs opacity-80 mt-1" style={{ color: textColor }}>espro coins</div>

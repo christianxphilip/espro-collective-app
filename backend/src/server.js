@@ -217,7 +217,26 @@ function startWorker() {
     }
   });
 
+  // Setup cron job to sync voucher claim status every hour (runs at the same time as loyalty sync)
+  cron.schedule('0 * * * *', async () => {
+    console.log('[Cron] Starting scheduled Odoo voucher claim status sync...');
+    try {
+      // Check if DB is connected before syncing
+      if (mongoose.connection.readyState !== 1) {
+        console.warn('[Cron] MongoDB not connected, skipping voucher sync');
+        return;
+      }
+      
+      const { syncVoucherClaimStatus } = await import('./services/odooVoucherSync.js');
+      const result = await syncVoucherClaimStatus();
+      console.log('[Cron] Odoo voucher claim status sync completed:', result);
+    } catch (error) {
+      console.error('[Cron] Odoo voucher claim status sync failed:', error.message);
+    }
+  });
+
   console.log('[Cron] Scheduled Odoo sync job: runs every hour at :00');
+  console.log('[Cron] Scheduled Odoo voucher claim status sync job: runs every hour at :00');
   console.log('[Worker] Worker is running and ready to process jobs');
 }
 

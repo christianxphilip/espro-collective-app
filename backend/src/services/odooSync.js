@@ -12,6 +12,11 @@ let sessionId = null;
 let sessionExpiry = null;
 let sessionCookies = ''; // Store all cookies for the session
 
+// Export sessionCookies for use in other modules
+export function getSessionCookies() {
+  return sessionCookies;
+}
+
 // Create axios instance
 const client = axios.create({
   baseURL: ODOO_URL,

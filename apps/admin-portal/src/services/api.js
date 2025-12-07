@@ -79,6 +79,7 @@ export const adminAPI = {
     });
   },
   syncOdooPoints: () => api.post('/admin/sync-odoo-points'),
+  syncVoucherStatus: () => api.post('/admin/sync-voucher-status'),
   getOdooSyncStatus: () => api.get('/admin/odoo-sync-status'),
   getLoyaltyIds: (params) => api.get('/admin/loyalty-ids', { params }),
   createLoyaltyId: (loyaltyId) => api.post('/admin/loyalty-ids', { loyaltyId }),
@@ -102,6 +103,9 @@ export const rewardsAPI = {
       if (data[key] !== null && data[key] !== undefined) {
         if (key === 'image' || key === 'voucherImage' || key === 'voucherCodes') {
           if (data[key]) formData.append(key, data[key]);
+        } else if (key === 'cardDesignIds' && Array.isArray(data[key])) {
+          // Convert array to JSON string for FormData
+          formData.append(key, JSON.stringify(data[key]));
         } else {
           formData.append(key, data[key]);
         }
@@ -117,6 +121,9 @@ export const rewardsAPI = {
       if (data[key] !== null && data[key] !== undefined) {
         if (key === 'image' || key === 'voucherImage' || key === 'voucherCodes') {
           if (data[key]) formData.append(key, data[key]);
+        } else if (key === 'cardDesignIds' && Array.isArray(data[key])) {
+          // Convert array to JSON string for FormData
+          formData.append(key, JSON.stringify(data[key]));
         } else {
           formData.append(key, data[key]);
         }

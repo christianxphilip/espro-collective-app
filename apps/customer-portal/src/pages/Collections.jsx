@@ -39,9 +39,13 @@ export default function Collections() {
 
   const activateMutation = useMutation({
     mutationFn: (id) => customerAPI.activateCardDesign(id),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // Update user with the full activeCardDesign object from the response
       updateUser({ activeCardDesign: data.data.user.activeCardDesign });
+      // Also refetch user to ensure we have the latest data
+      await fetchUser();
       queryClient.invalidateQueries(['profile']);
+      queryClient.invalidateQueries(['collectibles']);
       setToast({
         isOpen: true,
         message: 'Card design activated!',
@@ -137,7 +141,7 @@ export default function Collections() {
               
               // Front card style
               const activeCardStyle =
-                activeDesign.designType === 'image' && imageUrl
+                (activeDesign.designType === 'image' || activeDesign.designType === 'reward') && imageUrl
                   ? {
                       backgroundImage: `url(${imageUrl})`,
                       backgroundSize: 'cover',
@@ -203,7 +207,7 @@ export default function Collections() {
                           
                           <div className="flex-1 min-h-0"></div>
                           
-                          <div className="mt-auto pt-4 flex-shrink-0" style={{ borderTop: `1px solid ${textColor}33` }}>
+                          <div className="mt-auto pt-4 flex-shrink-0" style={{ borderTop: activeDesign.designType === 'image' || activeDesign.designType === 'reward' ? 'none' : `1px solid ${textColor}33` }}>
                             <div className="text-sm opacity-90 mb-2" style={{ color: textColor }}>Balance</div>
                             <div className="text-4xl font-bold tracking-tight" style={{ color: textColor }}>{formatEsproCoinsDisplay(user?.esproCoins || 0)}</div>
                             <div className="text-xs opacity-80 mt-1" style={{ color: textColor }}>espro coins</div>
@@ -266,7 +270,7 @@ export default function Collections() {
               : null;
             
             const cardStyle =
-              collectible.designType === 'image' && imageUrl
+              (collectible.designType === 'image' || collectible.designType === 'reward') && imageUrl
                 ? {
                     backgroundImage: `url(${imageUrl})`,
                     backgroundSize: 'cover',
@@ -309,6 +313,12 @@ export default function Collections() {
                   {isUnlocked ? (
                     <div className="text-xs text-gray-600 mt-1">
                       {isActive ? 'Active' : 'Tap to activate'}
+                    </div>
+                  ) : collectible.designType === 'reward' ? (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500">
+                        Unlock by claiming a reward
+                      </div>
                     </div>
                   ) : (
                     <div className="mt-2">

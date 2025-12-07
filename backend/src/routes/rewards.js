@@ -4,6 +4,7 @@ import { protect, requireAdmin } from '../middleware/auth.js';
 import Reward from '../models/Reward.js';
 import Claim from '../models/Claim.js';
 import User from '../models/User.js';
+import Collectible from '../models/Collectible.js';
 import PointsTransaction from '../models/PointsTransaction.js';
 import odooBalanceQueue from '../jobs/odooBalanceQueue.js';
 import multer from 'multer';
@@ -114,6 +115,526 @@ router.post('/claim/:id', protect, async (req, res) => {
       });
     }
 
+    // Handle card design rewards differently
+    // Check if rewardType exists and is a card design type
+    const isCardDesignReward = reward.rewardType === 'specificCardDesign' || reward.rewardType === 'randomCardDesign';
+    
+    if (isCardDesignReward) {
+      console.log('[Reward Claim] Processing card design reward:', {
+        rewardId: reward._id.toString(),
+        rewardType: reward.rewardType,
+        cardDesignIds: reward.cardDesignIds,
+        cardDesignIdsLength: reward.cardDesignIds?.length,
+        cardDesignIdsType: Array.isArray(reward.cardDesignIds) ? 'array' : typeof reward.cardDesignIds
+      });
+      
+      // For card design rewards, skip voucher code logic
+      const user = await User.findById(userId);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+      
+      // Check if user has enough coins (for non-store rewards)
+      if (!reward.claimableAtStore) {
+        if (user.esproCoins < reward.esproCoinsRequired) {
+          return res.status(400).json({
+            success: false,
+            message: 'Insufficient espro coins',
+          });
+        }
+      }
+
+      // Validate that cardDesignIds exists and is an array
+      if (!reward.cardDesignIds || !Array.isArray(reward.cardDesignIds) || reward.cardDesignIds.length === 0) {
+        console.error('[Reward Claim] Reward missing cardDesignIds:', {
+          rewardId: reward._id.toString(),
+          rewardType: reward.rewardType,
+          cardDesignIds: reward.cardDesignIds,
+          cardDesignIdsType: typeof reward.cardDesignIds,
+          isArray: Array.isArray(reward.cardDesignIds)
+        });
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid reward configuration: card design reward must have card designs selected',
+        });
+      }
+
+      // Get user's unlocked collectibles - convert to strings for comparison
+      const userUnlockedCollectibles = (user.unlockedCollectibles || []).map(id => id.toString());
+      
+      let awardedCardDesign = null;
+      
+      if (reward.rewardType === 'specificCardDesign') {
+        // Validate: must have exactly 1 card design
+        if (reward.cardDesignIds.length !== 1) {
+          console.error('[Reward Claim] Invalid specific card design reward:', {
+            rewardId: reward._id.toString(),
+            cardDesignIds: reward.cardDesignIds,
+            length: reward.cardDesignIds.length
+          });
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid reward configuration: specific card design reward must have exactly one card design',
+          });
+        }
+        
+        const cardDesignId = reward.cardDesignIds[0];
+        const cardDesign = await Collectible.findById(cardDesignId);
+        
+        if (!cardDesign || !cardDesign.isActive) {
+          console.error('[Reward Claim] Card design not found or inactive:', {
+            cardDesignId,
+            found: !!cardDesign,
+            isActive: cardDesign?.isActive
+          });
+          return res.status(400).json({
+            success: false,
+            message: 'Card design not found or inactive',
+          });
+        }
+        
+        // Check if user already has this card design
+        if (userUnlockedCollectibles.includes(cardDesignId.toString())) {
+          return res.status(400).json({
+            success: false,
+            message: 'You already have this card design',
+          });
+        }
+        
+        awardedCardDesign = cardDesignId;
+      } else if (reward.rewardType === 'randomCardDesign') {
+        // Validate: must have at least 2 card designs
+        if (!reward.cardDesignIds || reward.cardDesignIds.length < 2) {
+          console.error('[Reward Claim] Invalid random card design reward:', {
+            rewardId: reward._id,
+            cardDesignIds: reward.cardDesignIds,
+            length: reward.cardDesignIds?.length
+          });
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid reward configuration: random card design reward must have at least two card designs',
+          });
+        }
+        
+        // Filter out card designs user already has - convert to strings for comparison
+        // Handle both ObjectId and string formats
+        const availableDesigns = reward.cardDesignIds.filter(
+          designId => {
+            const designIdStr = designId.toString ? designId.toString() : String(designId);
+            const isUnlocked = userUnlockedCollectibles.includes(designIdStr);
+            return !isUnlocked;
+          }
+        );
+        
+        console.log('[Reward Claim] Random card design filtering:', {
+          rewardId: reward._id.toString(),
+          cardDesignIds: reward.cardDesignIds.map(id => id.toString ? id.toString() : String(id)),
+          userUnlockedCollectibles,
+          availableDesigns: availableDesigns.map(id => id.toString ? id.toString() : String(id)),
+          availableCount: availableDesigns.length
+        });
+        
+        if (availableDesigns.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'No new card designs available. You already have all designs in this reward.',
+          });
+        }
+        
+        // Shuffle the available designs array to ensure true randomness
+        // Use Fisher-Yates shuffle algorithm for better randomness
+        const shuffledDesigns = [...availableDesigns];
+        for (let i = shuffledDesigns.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledDesigns[i], shuffledDesigns[j]] = [shuffledDesigns[j], shuffledDesigns[i]];
+        }
+        
+        // Randomly select one from shuffled designs
+        const randomIndex = Math.floor(Math.random() * shuffledDesigns.length);
+        awardedCardDesign = shuffledDesigns[randomIndex];
+        
+        const awardedCardDesignId = awardedCardDesign.toString ? awardedCardDesign.toString() : String(awardedCardDesign);
+        
+        // CRITICAL: Verify the awarded card is in the available designs
+        const isInAvailableDesigns = availableDesigns.some(id => {
+          const idStr = id.toString ? id.toString() : String(id);
+          return idStr === awardedCardDesignId;
+        });
+        
+        if (!isInAvailableDesigns) {
+          console.error('[Reward Claim] CRITICAL ERROR: Selected card is NOT in available designs!', {
+            awardedCardDesignId,
+            availableDesigns: availableDesigns.map(id => id.toString ? id.toString() : String(id)),
+            shuffledDesigns: shuffledDesigns.map(id => id.toString ? id.toString() : String(id)),
+            randomIndex
+          });
+          return res.status(500).json({
+            success: false,
+            message: 'Error: Selected card design is not available. Please try again.',
+          });
+        }
+        
+        // CRITICAL: Verify the awarded card is not already unlocked (double-check)
+        if (userUnlockedCollectibles.includes(awardedCardDesignId)) {
+          console.error('[Reward Claim] CRITICAL ERROR: Selected card is already unlocked!', {
+            awardedCardDesignId,
+            userUnlockedCollectibles,
+            availableDesigns: availableDesigns.map(id => id.toString ? id.toString() : String(id))
+          });
+          return res.status(500).json({
+            success: false,
+            message: 'Error: Selected card design is already unlocked. Please try again.',
+          });
+        }
+        
+        console.log('[Reward Claim] Selected random card design:', {
+          randomIndex,
+          availableDesignsCount: availableDesigns.length,
+          shuffledDesignsCount: shuffledDesigns.length,
+          awardedCardDesign: awardedCardDesignId,
+          allAvailableIds: availableDesigns.map(id => id.toString ? id.toString() : String(id)),
+          selectedId: awardedCardDesignId,
+          verifiedInAvailable: isInAvailableDesigns,
+          verifiedNotUnlocked: !userUnlockedCollectibles.includes(awardedCardDesignId)
+        });
+      }
+
+      // Deduct coins if not claimable at store
+      let updatedUser;
+      let coinsDeducted = 0;
+      
+      if (!reward.claimableAtStore) {
+        const newBalance = user.esproCoins - reward.esproCoinsRequired;
+        
+        updatedUser = await User.findOneAndUpdate(
+          { 
+            _id: userId,
+            esproCoins: { $gte: reward.esproCoinsRequired }
+          },
+          { 
+            $set: { esproCoins: newBalance },
+            $addToSet: { unlockedCollectibles: awardedCardDesign } // Add to unlocked collectibles
+          },
+          { new: true }
+        );
+
+        if (!updatedUser) {
+          return res.status(400).json({
+            success: false,
+            message: 'Insufficient espro coins',
+          });
+        }
+
+        coinsDeducted = reward.esproCoinsRequired;
+
+        // Queue Odoo balance update as background job (non-blocking)
+        if (updatedUser.odooCardId) {
+          const description = `Redeem Reward: ${reward.title}, Card Design: ${awardedCardDesign}`;
+          odooBalanceQueue.addJob(updatedUser.odooCardId, newBalance, description);
+          console.log(`[Reward Claim] Queued Odoo balance update for user ${updatedUser._id}, card ${updatedUser.odooCardId}`);
+        }
+      } else {
+        // For store-claimable rewards, just unlock the card design
+        updatedUser = await User.findByIdAndUpdate(
+          userId,
+          { $addToSet: { unlockedCollectibles: awardedCardDesign } },
+          { new: true }
+        );
+      }
+
+      // For card design rewards, don't generate voucher codes
+      // Use a unique tracking identifier for idempotency instead
+      const trackingId = `CARD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const voucherCode = null; // No voucher code for card design rewards
+
+      // Check if claim already exists (idempotency) - check by user, reward, and awarded card design
+      // CRITICAL: Only return existing claim if it has the SAME awarded card design
+      const existingClaim = await Claim.findOne({
+        user: userId,
+        reward: rewardId,
+        awardedCardDesign: awardedCardDesign,
+      });
+
+      if (existingClaim) {
+        const existingCardDesignId = existingClaim.awardedCardDesign?.toString ? 
+          existingClaim.awardedCardDesign.toString() : 
+          String(existingClaim.awardedCardDesign);
+        const newCardDesignId = awardedCardDesign.toString ? 
+          awardedCardDesign.toString() : 
+          String(awardedCardDesign);
+        
+        console.log('[Reward Claim] Found existing claim:', {
+          existingClaimId: existingClaim._id.toString(),
+          existingCardDesignId,
+          newCardDesignId,
+          match: existingCardDesignId === newCardDesignId
+        });
+        
+        // Only return existing claim if it matches the current awarded card design
+        if (existingCardDesignId === newCardDesignId) {
+          const populatedClaim = await Claim.findById(existingClaim._id)
+            .populate({
+              path: 'reward',
+              select: '-voucherCodes -voucherCode',
+            })
+            .populate({
+              path: 'awardedCardDesign',
+              select: 'name description imageUrl designType gradientColors solidColor textColor backCardColor backCardImageUrl',
+            });
+          
+          // CRITICAL: Verify the populated claim has the correct awardedCardDesign
+          const populatedCardDesignId = populatedClaim.awardedCardDesign?._id?.toString();
+          const isPopulated = populatedClaim.awardedCardDesign && typeof populatedClaim.awardedCardDesign === 'object' && populatedClaim.awardedCardDesign._id;
+          
+          console.log('[Reward Claim] Returning existing claim (idempotent):', {
+            claimId: populatedClaim._id.toString(),
+            populatedCardDesignId,
+            expectedCardDesignId: newCardDesignId,
+            match: populatedCardDesignId === newCardDesignId,
+            hasAwardedCardDesign: !!populatedClaim.awardedCardDesign,
+            isPopulated: isPopulated,
+            awardedCardDesignType: typeof populatedClaim.awardedCardDesign,
+            awardedCardDesignValue: populatedClaim.awardedCardDesign
+          });
+          
+          // CRITICAL: Always fetch awardedCardDesign separately to ensure it's populated
+          // Mongoose populate sometimes doesn't work correctly, so we'll fetch it manually
+          const cardDesignId = populatedClaim.awardedCardDesign?.toString ? 
+            populatedClaim.awardedCardDesign.toString() : 
+            (populatedClaim.awardedCardDesign?._id ? populatedClaim.awardedCardDesign._id.toString() : String(populatedClaim.awardedCardDesign));
+          
+          let awardedCardDesignObj = null;
+          if (cardDesignId) {
+            // Always fetch it manually to ensure we have the full object
+            awardedCardDesignObj = await Collectible.findById(cardDesignId)
+              .select('name description imageUrl designType gradientColors solidColor textColor backCardColor backCardImageUrl');
+            console.log('[Reward Claim] Fetched awardedCardDesign manually:', {
+              cardDesignId,
+              found: !!awardedCardDesignObj,
+              id: awardedCardDesignObj?._id?.toString(),
+              name: awardedCardDesignObj?.name,
+              imageUrl: awardedCardDesignObj?.imageUrl
+            });
+          }
+          
+          if (!awardedCardDesignObj) {
+            console.error('[Reward Claim] CRITICAL: Could not fetch awardedCardDesign!', {
+              cardDesignId,
+              populatedClaimAwardedCardDesign: populatedClaim.awardedCardDesign
+            });
+            return res.status(500).json({
+              success: false,
+              message: 'Error: Could not retrieve awarded card design. Please try again.',
+            });
+          }
+          
+          return res.json({
+            success: true,
+            claim: populatedClaim,
+            remainingCoins: updatedUser.esproCoins,
+            // CRITICAL: Include populated awardedCardDesign in response (frontend expects this)
+            awardedCardDesign: awardedCardDesignObj,
+            message: 'Claim already exists (idempotent response)',
+          });
+        } else {
+          console.log('[Reward Claim] Existing claim has different card design, creating new claim');
+        }
+      }
+
+      // Create claim with awarded card design (no voucher code)
+      // CRITICAL: Ensure we're creating a NEW claim with the correct awardedCardDesign
+      let claim;
+      const awardedCardDesignId = awardedCardDesign.toString ? awardedCardDesign.toString() : String(awardedCardDesign);
+      
+      try {
+        // First, check if a claim exists with this exact combination (idempotency)
+        const existingClaim = await Claim.findOne({
+          user: userId,
+          reward: rewardId,
+          awardedCardDesign: awardedCardDesign,
+        });
+        
+        if (existingClaim) {
+          const existingCardId = existingClaim.awardedCardDesign?.toString ? 
+            existingClaim.awardedCardDesign.toString() : 
+            String(existingClaim.awardedCardDesign);
+          
+          console.log('[Reward Claim] Found existing claim with same card design:', {
+            claimId: existingClaim._id.toString(),
+            existingCardId,
+            expectedCardId: awardedCardDesignId,
+            match: existingCardId === awardedCardDesignId
+          });
+          
+          if (existingCardId === awardedCardDesignId) {
+            // Use existing claim - populate it before returning
+            claim = existingClaim;
+          } else {
+            console.error('[Reward Claim] Existing claim has different card design, creating new one');
+            // Create a new claim - the unique index allows multiple claims with different awardedCardDesign
+            claim = await Claim.create({
+              user: userId,
+              reward: rewardId,
+              voucherCode: voucherCode, // null for card design rewards
+              esproCoinsDeducted: coinsDeducted,
+              awardedCardDesign: awardedCardDesign,
+              isUsed: false,
+              claimedAt: new Date(),
+            });
+            console.log('[Reward Claim] New claim created:', {
+              claimId: claim._id.toString(),
+              awardedCardDesign: claim.awardedCardDesign?.toString ? claim.awardedCardDesign.toString() : String(claim.awardedCardDesign)
+            });
+          }
+        } else {
+          // Create a new claim with the awarded card design
+          console.log('[Reward Claim] Creating new claim with awarded card design:', {
+            awardedCardDesign: awardedCardDesignId
+          });
+          claim = await Claim.create({
+            user: userId,
+            reward: rewardId,
+            voucherCode: voucherCode, // null for card design rewards
+            esproCoinsDeducted: coinsDeducted,
+            awardedCardDesign: awardedCardDesign,
+            isUsed: false,
+            claimedAt: new Date(),
+          });
+          console.log('[Reward Claim] New claim created:', {
+            claimId: claim._id.toString(),
+            awardedCardDesign: claim.awardedCardDesign?.toString ? claim.awardedCardDesign.toString() : String(claim.awardedCardDesign)
+          });
+        }
+      } catch (error) {
+        console.error('[Reward Claim] Error creating claim:', error);
+        // Refund coins if claim creation fails
+        if (!reward.claimableAtStore && coinsDeducted > 0) {
+          await User.findByIdAndUpdate(userId, {
+            $inc: { esproCoins: coinsDeducted },
+            $pull: { unlockedCollectibles: awardedCardDesign }
+          });
+          console.log('[Reward Claim] Refunded coins due to claim creation error');
+        }
+        throw error;
+      }
+      
+      // CRITICAL: Verify the claim has the correct awardedCardDesign immediately after creation
+      const claimCardDesignId = claim.awardedCardDesign?.toString ? 
+        claim.awardedCardDesign.toString() : 
+        String(claim.awardedCardDesign);
+      
+      console.log('[Reward Claim] Claim verification after creation:', {
+        claimCardDesignId,
+        expectedCardDesignId: awardedCardDesignId,
+        match: claimCardDesignId === awardedCardDesignId,
+        claimId: claim._id.toString()
+      });
+      
+      if (claimCardDesignId !== awardedCardDesignId) {
+        console.error('[Reward Claim] CRITICAL: Claim has wrong card design after creation!', {
+          claimCardDesignId,
+          expectedCardDesignId: awardedCardDesignId,
+          claimId: claim._id.toString()
+        });
+        // Refund coins
+        if (!reward.claimableAtStore && coinsDeducted > 0) {
+          await User.findByIdAndUpdate(userId, {
+            $inc: { esproCoins: coinsDeducted },
+            $pull: { unlockedCollectibles: awardedCardDesign }
+          });
+        }
+        // Delete the incorrect claim
+        await Claim.findByIdAndDelete(claim._id);
+        return res.status(500).json({
+          success: false,
+          message: 'Error: Claim was created with incorrect card design. Please try again.',
+        });
+      }
+
+      // Create transaction record for used points (if coins were deducted)
+      if (coinsDeducted > 0 && claim) {
+        await PointsTransaction.create({
+          user: userId,
+          type: 'used',
+          amount: coinsDeducted,
+          description: `Redeemed reward: ${reward.title}`,
+          referenceId: claim._id,
+          referenceType: 'Claim',
+          balanceAfter: updatedUser.esproCoins,
+        });
+      }
+
+      // Get claim with populated reward and card design
+      const populatedClaim = await Claim.findById(claim._id)
+        .populate({
+          path: 'reward',
+          select: '-voucherCodes -voucherCode',
+        })
+        .populate({
+          path: 'awardedCardDesign',
+          select: 'name description imageUrl designType gradientColors solidColor textColor backCardColor backCardImageUrl',
+        });
+
+      // CRITICAL: Always fetch awardedCardDesign manually to ensure it's populated
+      const cardDesignId = awardedCardDesign.toString ? awardedCardDesign.toString() : String(awardedCardDesign);
+      
+      let awardedCardDesignObj = await Collectible.findById(cardDesignId)
+        .select('name description imageUrl designType gradientColors solidColor textColor backCardColor backCardImageUrl');
+      
+      console.log('[Reward Claim] Fetched awardedCardDesign for new claim:', {
+        cardDesignId,
+        found: !!awardedCardDesignObj,
+        id: awardedCardDesignObj?._id?.toString(),
+        name: awardedCardDesignObj?.name
+      });
+      
+      if (!awardedCardDesignObj) {
+        console.error('[Reward Claim] CRITICAL: Could not fetch awardedCardDesign for new claim!', {
+          cardDesignId
+        });
+        return res.status(500).json({
+          success: false,
+          message: 'Error: Could not retrieve awarded card design. Please try again.',
+        });
+      }
+      
+      // Verify the fetched card design matches what we selected
+      const fetchedCardDesignId = awardedCardDesignObj._id.toString();
+      const expectedCardDesignId = cardDesignId;
+      
+      console.log('[Reward Claim] Final response verification:', {
+        fetchedCardDesignId,
+        expectedCardDesignId,
+        match: fetchedCardDesignId === expectedCardDesignId,
+        cardName: awardedCardDesignObj?.name
+      });
+      
+      if (fetchedCardDesignId !== expectedCardDesignId) {
+        console.error('[Reward Claim] CRITICAL: Fetched card design does not match expected!', {
+          fetchedCardDesignId,
+          expectedCardDesignId,
+          claimId: claim._id.toString()
+        });
+        return res.status(500).json({
+          success: false,
+          message: 'Error: Claim was created with incorrect card design. Please try again.',
+        });
+      }
+
+      return res.json({
+        success: true,
+        claim: populatedClaim,
+        remainingCoins: updatedUser.esproCoins,
+        // CRITICAL: Always return the manually fetched awardedCardDesign
+        awardedCardDesign: awardedCardDesignObj,
+      });
+    }
+
+    // Original voucher reward logic below
     // Check if voucher codes are available
     const hasVoucherCodes = reward.voucherCodes && reward.voucherCodes.length > 0;
     
@@ -442,7 +963,7 @@ router.post('/', combinedUpload.fields([
   { name: 'voucherCodes', maxCount: 1 },
 ]), async (req, res) => {
   try {
-    const { name, description, esproCoinsRequired, quantity, claimableAtStore, voucherUploadRequired } = req.body;
+    const { name, description, esproCoinsRequired, quantity, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId } = req.body;
 
     const rewardData = {
       title: name,
@@ -452,7 +973,58 @@ router.post('/', combinedUpload.fields([
       createdBy: req.user._id,
       claimableAtStore: claimableAtStore === 'true' || claimableAtStore === true,
       voucherUploadRequired: voucherUploadRequired === 'true' || voucherUploadRequired === true,
+      rewardType: rewardType || 'voucher',
+      odooRewardId: odooRewardId ? parseInt(odooRewardId) : null,
     };
+
+    // Handle card design rewards
+    if (rewardData.rewardType === 'specificCardDesign' || rewardData.rewardType === 'randomCardDesign') {
+      // Parse cardDesignIds (can be JSON string or array)
+      let parsedCardDesignIds = [];
+      if (cardDesignIds) {
+        if (typeof cardDesignIds === 'string') {
+          try {
+            parsedCardDesignIds = JSON.parse(cardDesignIds);
+          } catch (e) {
+            parsedCardDesignIds = [cardDesignIds]; // Single ID as string
+          }
+        } else if (Array.isArray(cardDesignIds)) {
+          parsedCardDesignIds = cardDesignIds;
+        }
+      }
+
+      // Validate card design IDs
+      if (rewardData.rewardType === 'specificCardDesign') {
+        if (parsedCardDesignIds.length !== 1) {
+          return res.status(400).json({
+            success: false,
+            message: 'Specific card design reward must have exactly one card design',
+          });
+        }
+      } else if (rewardData.rewardType === 'randomCardDesign') {
+        if (parsedCardDesignIds.length < 2) {
+          return res.status(400).json({
+            success: false,
+            message: 'Random card design reward must have at least two card designs',
+          });
+        }
+      }
+
+      // Validate all card designs exist and are active
+      const cardDesigns = await Collectible.find({
+        _id: { $in: parsedCardDesignIds },
+        isActive: true,
+      });
+
+      if (cardDesigns.length !== parsedCardDesignIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'One or more card designs not found or inactive',
+        });
+      }
+
+      rewardData.cardDesignIds = parsedCardDesignIds;
+    }
 
     if (req.files?.image) {
       rewardData.imageUrl = `/uploads/rewards/${req.files.image[0].filename}`;
@@ -523,7 +1095,7 @@ router.put('/:id', combinedUpload.fields([
   { name: 'voucherCodes', maxCount: 1 },
 ]), async (req, res) => {
   try {
-    const { name, description, esproCoinsRequired, quantity, voucherCodePrefix, isActive, claimableAtStore, voucherUploadRequired } = req.body;
+    const { name, description, esproCoinsRequired, quantity, voucherCodePrefix, isActive, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId } = req.body;
 
     const reward = await Reward.findById(req.params.id);
     if (!reward) {
@@ -541,6 +1113,62 @@ router.put('/:id', combinedUpload.fields([
     if (isActive !== undefined) reward.isActive = isActive === 'true' || isActive === true;
     if (claimableAtStore !== undefined) reward.claimableAtStore = claimableAtStore === 'true' || claimableAtStore === true;
     if (voucherUploadRequired !== undefined) reward.voucherUploadRequired = voucherUploadRequired === 'true' || voucherUploadRequired === true;
+    if (rewardType) reward.rewardType = rewardType;
+    if (odooRewardId !== undefined) reward.odooRewardId = odooRewardId ? parseInt(odooRewardId) : null;
+
+    // Handle card design rewards
+    if (reward.rewardType === 'specificCardDesign' || reward.rewardType === 'randomCardDesign') {
+      // Parse cardDesignIds (can be JSON string or array)
+      let parsedCardDesignIds = [];
+      if (cardDesignIds) {
+        if (typeof cardDesignIds === 'string') {
+          try {
+            parsedCardDesignIds = JSON.parse(cardDesignIds);
+          } catch (e) {
+            parsedCardDesignIds = [cardDesignIds]; // Single ID as string
+          }
+        } else if (Array.isArray(cardDesignIds)) {
+          parsedCardDesignIds = cardDesignIds;
+        }
+      }
+
+      // Validate card design IDs
+      if (reward.rewardType === 'specificCardDesign') {
+        if (parsedCardDesignIds.length !== 1) {
+          return res.status(400).json({
+            success: false,
+            message: 'Specific card design reward must have exactly one card design',
+          });
+        }
+      } else if (reward.rewardType === 'randomCardDesign') {
+        if (parsedCardDesignIds.length < 2) {
+          return res.status(400).json({
+            success: false,
+            message: 'Random card design reward must have at least two card designs',
+          });
+        }
+      }
+
+      // Validate all card designs exist and are active
+      if (parsedCardDesignIds.length > 0) {
+        const cardDesigns = await Collectible.find({
+          _id: { $in: parsedCardDesignIds },
+          isActive: true,
+        });
+
+        if (cardDesigns.length !== parsedCardDesignIds.length) {
+          return res.status(400).json({
+            success: false,
+            message: 'One or more card designs not found or inactive',
+          });
+        }
+
+        reward.cardDesignIds = parsedCardDesignIds;
+      }
+    } else {
+      // Clear cardDesignIds for non-card-design rewards
+      reward.cardDesignIds = [];
+    }
 
     if (req.files?.image) {
       reward.imageUrl = `/uploads/rewards/${req.files.image[0].filename}`;

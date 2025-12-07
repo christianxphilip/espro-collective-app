@@ -28,7 +28,7 @@ const collectibleSchema = new mongoose.Schema({
   },
   designType: {
     type: String,
-    enum: ['image', 'gradient', 'solid'],
+    enum: ['image', 'gradient', 'solid', 'reward'],
     default: 'gradient',
   },
   solidColor: {
@@ -52,7 +52,9 @@ const collectibleSchema = new mongoose.Schema({
   },
   lifetimeEsproCoinsRequired: {
     type: Number,
-    required: [true, 'Lifetime espro coins requirement is needed'],
+    required: function() {
+      return this.designType !== 'reward'; // Not required for reward-type designs
+    },
     min: 0,
     default: 0, // Default design is unlocked at 0
   },
