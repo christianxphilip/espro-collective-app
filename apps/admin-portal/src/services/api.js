@@ -114,6 +114,7 @@ export const referralsAPI = {
   update: (id, data) => api.put(`/admin/referrals/${id}`, data),
   delete: (id) => api.delete(`/admin/referrals/${id}`),
   getUsers: (id) => api.get(`/admin/referrals/${id}/users`),
+  addUser: (id, userId) => api.post(`/admin/referrals/${id}/add-user`, { userId }),
 };
 
 export const rewardsAPI = {

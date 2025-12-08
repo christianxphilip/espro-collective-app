@@ -116,6 +116,21 @@ router.post('/claim/:id', protect, async (req, res) => {
       });
     }
 
+    // Check if user has reached the claim limit for this reward
+    if (reward.maxClaimsPerUser !== -1 && reward.maxClaimsPerUser > 0) {
+      const existingClaimsCount = await Claim.countDocuments({
+        user: userId,
+        reward: rewardId,
+      });
+      
+      if (existingClaimsCount >= reward.maxClaimsPerUser) {
+        return res.status(400).json({
+          success: false,
+          message: `You have already claimed this reward the maximum number of times (${reward.maxClaimsPerUser}).`,
+        });
+      }
+    }
+
     // Handle card design rewards differently
     // Check if rewardType exists and is a card design type
     const isCardDesignReward = reward.rewardType === 'specificCardDesign' || reward.rewardType === 'randomCardDesign';
@@ -976,7 +991,7 @@ router.post('/', combinedUpload.fields([
   { name: 'voucherCodes', maxCount: 1 },
 ]), async (req, res) => {
   try {
-    const { name, description, esproCoinsRequired, quantity, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId } = req.body;
+    const { name, description, esproCoinsRequired, quantity, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId, maxClaimsPerUser } = req.body;
 
     const rewardData = {
       title: name,
@@ -988,6 +1003,7 @@ router.post('/', combinedUpload.fields([
       voucherUploadRequired: voucherUploadRequired === 'true' || voucherUploadRequired === true,
       rewardType: rewardType || 'voucher',
       odooRewardId: odooRewardId ? parseInt(odooRewardId) : null,
+      maxClaimsPerUser: maxClaimsPerUser !== undefined && maxClaimsPerUser !== '' && maxClaimsPerUser !== null ? parseInt(maxClaimsPerUser) : -1,
     };
 
     // Handle card design rewards
@@ -1108,7 +1124,7 @@ router.put('/:id', combinedUpload.fields([
   { name: 'voucherCodes', maxCount: 1 },
 ]), async (req, res) => {
   try {
-    const { name, description, esproCoinsRequired, quantity, voucherCodePrefix, isActive, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId } = req.body;
+    const { name, description, esproCoinsRequired, quantity, voucherCodePrefix, isActive, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId, maxClaimsPerUser } = req.body;
 
     const reward = await Reward.findById(req.params.id);
     if (!reward) {
@@ -1128,6 +1144,14 @@ router.put('/:id', combinedUpload.fields([
     if (voucherUploadRequired !== undefined) reward.voucherUploadRequired = voucherUploadRequired === 'true' || voucherUploadRequired === true;
     if (rewardType) reward.rewardType = rewardType;
     if (odooRewardId !== undefined) reward.odooRewardId = odooRewardId ? parseInt(odooRewardId) : null;
+    if (maxClaimsPerUser !== undefined) {
+      // Handle empty string or null as -1 (unlimited)
+      if (maxClaimsPerUser === '' || maxClaimsPerUser === null) {
+        reward.maxClaimsPerUser = -1;
+      } else {
+        reward.maxClaimsPerUser = parseInt(maxClaimsPerUser);
+      }
+    }
 
     // Handle card design rewards
     if (reward.rewardType === 'specificCardDesign' || reward.rewardType === 'randomCardDesign') {
