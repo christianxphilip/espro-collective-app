@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { referralsAPI, collectiblesAPI, rewardsAPI } from '../services/api';
+import { referralsAPI, collectiblesAPI, rewardsAPI, adminAPI } from '../services/api';
 import Layout from '../components/Layout';
 
 export default function Referrals() {
@@ -8,6 +8,9 @@ export default function Referrals() {
   const [editingReferral, setEditingReferral] = useState(null);
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [viewingReferral, setViewingReferral] = useState(null);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [addingToReferral, setAddingToReferral] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -115,6 +118,36 @@ export default function Referrals() {
     setViewingReferral(referral);
     setShowUsersModal(true);
   };
+
+  const handleAddUser = (referral) => {
+    setAddingToReferral(referral);
+    setShowAddUserModal(true);
+    setSearchQuery('');
+  };
+
+  // Fetch customers for add user modal
+  const { data: customersData, isLoading: isLoadingCustomers } = useQuery({
+    queryKey: ['customers', searchQuery],
+    queryFn: () => adminAPI.getCustomers({ search: searchQuery, limit: 50 }),
+    enabled: showAddUserModal,
+  });
+
+  const customers = customersData?.data?.customers || [];
+
+  const addUserMutation = useMutation({
+    mutationFn: ({ referralId, userId }) => referralsAPI.addUser(referralId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['referrals']);
+      queryClient.invalidateQueries(['referral-users']);
+      setShowAddUserModal(false);
+      setAddingToReferral(null);
+      setSearchQuery('');
+      alert('User added to referral code successfully');
+    },
+    onError: (error) => {
+      alert(error.response?.data?.message || 'Failed to add user to referral code');
+    },
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -232,6 +265,12 @@ export default function Referrals() {
                           className="text-espro-orange hover:text-orange-600"
                         >
                           View Users
+                        </button>
+                        <button
+                          onClick={() => handleAddUser(referral)}
+                          className="text-green-600 hover:text-green-800"
+                        >
+                          Add User
                         </button>
                         <button
                           onClick={() => handleEdit(referral)}
@@ -456,6 +495,98 @@ export default function Referrals() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">No users have used this referral code yet.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Add User Modal */}
+        {showAddUserModal && addingToReferral && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => {
+            setShowAddUserModal(false);
+            setAddingToReferral(null);
+            setSearchQuery('');
+          }}>
+            <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Add User to: {addingToReferral.code}</h2>
+                <button
+                  onClick={() => {
+                    setShowAddUserModal(false);
+                    setAddingToReferral(null);
+                    setSearchQuery('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Search Customers</label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, email, or loyalty ID..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              {isLoadingCustomers ? (
+                <div className="text-center py-8 text-gray-500">Loading customers...</div>
+              ) : customers.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {customers.map((customer) => {
+                    const hasReferral = customer.referralCodes?.some(
+                      (ref) => ref.referralCode?._id === addingToReferral._id || ref.referralCode === addingToReferral._id
+                    );
+                    return (
+                      <div
+                        key={customer._id}
+                        className={`p-4 border rounded-lg ${
+                          hasReferral ? 'bg-gray-50 border-gray-300' : 'bg-white border-gray-200 hover:border-espro-orange'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="font-medium text-gray-900">{customer.name}</div>
+                            <div className="text-sm text-gray-600">{customer.email}</div>
+                            {customer.loyaltyId && (
+                              <div className="text-xs text-gray-500">Loyalty ID: {customer.loyaltyId}</div>
+                            )}
+                          </div>
+                          <div>
+                            {hasReferral ? (
+                              <span className="text-sm text-gray-500">Already has this referral</span>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Add ${customer.name} to referral code ${addingToReferral.code}?`)) {
+                                    addUserMutation.mutate({
+                                      referralId: addingToReferral._id,
+                                      userId: customer._id,
+                                    });
+                                  }
+                                }}
+                                disabled={addUserMutation.isLoading}
+                                className="px-4 py-2 bg-espro-orange text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                              >
+                                {addUserMutation.isLoading ? 'Adding...' : 'Add'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  {searchQuery ? 'No customers found matching your search.' : 'Start typing to search for customers.'}
+                </div>
               )}
             </div>
           </div>

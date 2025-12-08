@@ -132,14 +132,14 @@ export default function Rewards() {
   const handleEdit = (reward) => {
     setEditingReward(reward);
     const imageUrl = reward.imageUrl 
-      ? (reward.imageUrl.startsWith('http') 
+      ? (reward.imageUrl.startsWith('http://') || reward.imageUrl.startsWith('https://')
           ? reward.imageUrl 
-          : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000'}${reward.imageUrl}`)
+          : `${getBaseApiUrl()}${reward.imageUrl}`)
       : null;
     const voucherImageUrl = reward.voucherImageUrl 
-      ? (reward.voucherImageUrl.startsWith('http') 
+      ? (reward.voucherImageUrl.startsWith('http://') || reward.voucherImageUrl.startsWith('https://')
           ? reward.voucherImageUrl 
-          : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000'}${reward.voucherImageUrl}`)
+          : `${getBaseApiUrl()}${reward.voucherImageUrl}`)
       : null;
     
     setFormData({
@@ -253,7 +253,7 @@ export default function Rewards() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rewards.map((reward) => {
               const imageUrl = reward.imageUrl 
-                ? (reward.imageUrl.startsWith('http') 
+                ? (reward.imageUrl.startsWith('http://') || reward.imageUrl.startsWith('https://')
                     ? reward.imageUrl 
                     : `${getBaseApiUrl()}${reward.imageUrl}`)
                 : null;
@@ -657,7 +657,7 @@ export default function Rewards() {
                   if (!cardDesign) return null;
                   
                   const imageUrl = cardDesign.imageUrl 
-                    ? (cardDesign.imageUrl.startsWith('http') 
+                    ? (cardDesign.imageUrl.startsWith('http://') || cardDesign.imageUrl.startsWith('https://')
                         ? cardDesign.imageUrl 
                         : `${getBaseApiUrl()}${cardDesign.imageUrl}`)
                     : null;

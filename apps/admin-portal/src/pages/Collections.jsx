@@ -176,7 +176,7 @@ export default function Collections() {
       
       if (imageUrl) {
         // Full image generation succeeded
-        const fullImageUrl = imageUrl.startsWith('http') 
+        const fullImageUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
           ? imageUrl 
           : `${getBaseApiUrl()}${imageUrl}`;
         
@@ -249,13 +249,13 @@ export default function Collections() {
   const handleEdit = (collectible) => {
     setEditingCollectible(collectible);
     const imageUrl = collectible.imageUrl 
-      ? (collectible.imageUrl.startsWith('http') 
+      ? (collectible.imageUrl.startsWith('http://') || collectible.imageUrl.startsWith('https://')
           ? collectible.imageUrl 
           : `${getBaseApiUrl()}${collectible.imageUrl}`)
       : null;
     
     const backImageUrl = collectible.backCardImageUrl 
-      ? (collectible.backCardImageUrl.startsWith('http') 
+      ? (collectible.backCardImageUrl.startsWith('http://') || collectible.backCardImageUrl.startsWith('https://')
           ? collectible.backCardImageUrl 
           : `${getBaseApiUrl()}${collectible.backCardImageUrl}`)
       : null;
@@ -278,7 +278,7 @@ export default function Collections() {
     });
     setPreviewImage(imageUrl);
     setPreviewBackImage(backImageUrl);
-    setAiGeneratedImageUrl(collectible.imageUrl && !imageUrl.startsWith('http') ? collectible.imageUrl : null);
+    setAiGeneratedImageUrl(collectible.imageUrl && !(imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) ? collectible.imageUrl : null);
     setShowForm(true);
   };
 
@@ -433,7 +433,7 @@ export default function Collections() {
             {collectibles?.map((collectible) => {
               // Construct full image URL
               const imageUrl = collectible.imageUrl 
-                ? (collectible.imageUrl.startsWith('http') 
+                ? (collectible.imageUrl.startsWith('http://') || collectible.imageUrl.startsWith('https://')
                     ? collectible.imageUrl 
                     : `${getBaseApiUrl()}${collectible.imageUrl}`)
                 : null;

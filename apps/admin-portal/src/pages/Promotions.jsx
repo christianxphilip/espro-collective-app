@@ -79,7 +79,7 @@ export default function Promotions() {
   const handleEdit = (promotion) => {
     setEditingPromotion(promotion);
     const imageUrl = promotion.imageUrl 
-      ? (promotion.imageUrl.startsWith('http') 
+      ? (promotion.imageUrl.startsWith('http://') || promotion.imageUrl.startsWith('https://')
           ? promotion.imageUrl 
           : `${getBaseApiUrl()}${promotion.imageUrl}`)
       : null;
@@ -141,7 +141,7 @@ export default function Promotions() {
             {promotions?.map((promotion) => {
               // Construct full image URL
               const imageUrl = promotion.imageUrl 
-                ? (promotion.imageUrl.startsWith('http') 
+                ? (promotion.imageUrl.startsWith('http://') || promotion.imageUrl.startsWith('https://')
                     ? promotion.imageUrl 
                     : `${getBaseApiUrl()}${promotion.imageUrl}`)
                 : null;

@@ -46,7 +46,7 @@ export default function Settings() {
         setOdooBalanceUpdateEnabled(settingsResponse.odooBalanceUpdateEnabled);
       }
       if (settingsResponse.logoUrl) {
-        const logoUrl = settingsResponse.logoUrl.startsWith('http')
+        const logoUrl = settingsResponse.logoUrl.startsWith('http://') || settingsResponse.logoUrl.startsWith('https://')
           ? settingsResponse.logoUrl
           : `${getBaseApiUrl()}${settingsResponse.logoUrl}`;
         setLogoPreview(logoUrl);
@@ -96,7 +96,7 @@ export default function Settings() {
       const logoUrl = response.data?.logoUrl || response.data?.settings?.logoUrl;
       console.log('[Settings] Logo upload response:', response.data);
       if (logoUrl) {
-        const fullLogoUrl = logoUrl.startsWith('http')
+        const fullLogoUrl = logoUrl.startsWith('http://') || logoUrl.startsWith('https://')
           ? logoUrl
           : `${getBaseApiUrl()}${logoUrl}`;
         setLogoPreview(fullLogoUrl);

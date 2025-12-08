@@ -79,7 +79,7 @@ export default function ClaimHistory() {
                 <div className="flex gap-4">
                   {(() => {
                     const imageUrl = claim.reward?.imageUrl 
-                      ? (claim.reward.imageUrl.startsWith('http') 
+                      ? (claim.reward.imageUrl.startsWith('http://') || claim.reward.imageUrl.startsWith('https://')
                           ? claim.reward.imageUrl 
                           : `${getBaseApiUrl()}${claim.reward.imageUrl}`)
                       : null;
@@ -113,7 +113,7 @@ export default function ClaimHistory() {
             <div className="text-lg font-bold mb-4">{selectedClaim.reward?.title}</div>
             {(() => {
               const voucherImageUrl = selectedClaim.reward?.voucherImageUrl 
-                ? (selectedClaim.reward.voucherImageUrl.startsWith('http') 
+                ? (selectedClaim.reward.voucherImageUrl.startsWith('http://') || selectedClaim.reward.voucherImageUrl.startsWith('https://')
                     ? selectedClaim.reward.voucherImageUrl 
                     : `${getBaseApiUrl()}${selectedClaim.reward.voucherImageUrl}`)
                 : null;

@@ -15,14 +15,14 @@ export default function WalletCard() {
 
   // Construct full image URL for front
   const imageUrl = cardDesign.imageUrl 
-    ? (cardDesign.imageUrl.startsWith('http') 
+    ? (cardDesign.imageUrl.startsWith('http://') || cardDesign.imageUrl.startsWith('https://')
         ? cardDesign.imageUrl 
         : `${getBaseApiUrl()}${cardDesign.imageUrl}`)
     : null;
 
   // Construct full image URL for back
   const backImageUrl = cardDesign.backCardImageUrl 
-    ? (cardDesign.backCardImageUrl.startsWith('http') 
+    ? (cardDesign.backCardImageUrl.startsWith('http://') || cardDesign.backCardImageUrl.startsWith('https://')
         ? cardDesign.backCardImageUrl 
         : `${getBaseApiUrl()}${cardDesign.backCardImageUrl}`)
     : null;

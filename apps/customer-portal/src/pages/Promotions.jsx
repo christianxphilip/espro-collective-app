@@ -74,7 +74,7 @@ export default function Promotions() {
             {promotions.map((promo) => {
               // Construct full image URL
               const imageUrl = promo.imageUrl 
-                ? (promo.imageUrl.startsWith('http') 
+                ? (promo.imageUrl.startsWith('http://') || promo.imageUrl.startsWith('https://')
                     ? promo.imageUrl 
                     : `${getBaseApiUrl()}${promo.imageUrl}`)
                 : null;

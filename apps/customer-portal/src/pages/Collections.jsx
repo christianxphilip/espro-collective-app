@@ -127,14 +127,14 @@ export default function Collections() {
               
               // Construct full image URL for front
               const imageUrl = activeDesign.imageUrl 
-                ? (activeDesign.imageUrl.startsWith('http') 
+                ? (activeDesign.imageUrl.startsWith('http://') || activeDesign.imageUrl.startsWith('https://')
                     ? activeDesign.imageUrl 
                     : `${getBaseApiUrl()}${activeDesign.imageUrl}`)
                 : null;
               
               // Construct full image URL for back
               const backImageUrl = activeDesign.backCardImageUrl 
-                ? (activeDesign.backCardImageUrl.startsWith('http') 
+                ? (activeDesign.backCardImageUrl.startsWith('http://') || activeDesign.backCardImageUrl.startsWith('https://')
                     ? activeDesign.backCardImageUrl 
                     : `${getBaseApiUrl()}${activeDesign.backCardImageUrl}`)
                 : null;
@@ -264,7 +264,7 @@ export default function Collections() {
             
             // Construct full image URL
             const imageUrl = collectible.imageUrl 
-              ? (collectible.imageUrl.startsWith('http') 
+              ? (collectible.imageUrl.startsWith('http://') || collectible.imageUrl.startsWith('https://')
                   ? collectible.imageUrl 
                   : `${getBaseApiUrl()}${collectible.imageUrl}`)
               : null;

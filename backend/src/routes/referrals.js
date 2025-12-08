@@ -287,5 +287,111 @@ router.delete('/:id', protect, requireAdmin, async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/referrals/:id/add-user
+// @desc    Manually add a user to a referral code
+// @access  Private/Admin
+router.post('/:id/add-user', protect, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const referralId = req.params.id;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required',
+      });
+    }
+
+    const referral = await ReferralCode.findById(referralId);
+    if (!referral) {
+      return res.status(404).json({
+        success: false,
+        message: 'Referral code not found',
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Check if user already has this referral code
+    const hasReferralCode = user.referralCodes && user.referralCodes.some(
+      (ref) => ref.referralCode && ref.referralCode.toString() === referralId.toString()
+    );
+    
+    if (hasReferralCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already has this referral code',
+      });
+    }
+
+    // Check if referral has reached max uses
+    if (referral.maxUses !== -1 && referral.currentUses >= referral.maxUses) {
+      return res.status(400).json({
+        success: false,
+        message: 'Referral code has reached maximum uses',
+      });
+    }
+
+    // Add referral code to user (must be an object with referralCode property)
+    if (!user.referralCodes) {
+      user.referralCodes = [];
+    }
+    user.referralCodes.push({
+      referralCode: referralId,
+      usedAt: new Date(),
+    });
+
+    // If referral has assigned card design, unlock it for user
+    if (referral.assignedCardDesign) {
+      const Collectible = (await import('../models/Collectible.js')).default;
+      if (!user.unlockedCollectibles) {
+        user.unlockedCollectibles = [];
+      }
+      if (!user.unlockedCollectibles.includes(referral.assignedCardDesign)) {
+        user.unlockedCollectibles.push(referral.assignedCardDesign);
+      }
+      // Set as active card design if user doesn't have one
+      if (!user.activeCardDesign) {
+        user.activeCardDesign = referral.assignedCardDesign;
+      }
+    }
+
+    await user.save();
+
+    // Update referral usage
+    referral.currentUses += 1;
+    if (!referral.usedBy) {
+      referral.usedBy = [];
+    }
+    referral.usedBy.push({
+      user: userId,
+      usedAt: new Date(),
+    });
+    await referral.save();
+
+    const populatedReferral = await ReferralCode.findById(referralId)
+      .populate('assignedCardDesign', 'name imageUrl designType')
+      .populate('assignedReward', 'title imageUrl esproCoinsRequired')
+      .populate('createdBy', 'name email');
+
+    res.json({
+      success: true,
+      message: 'User added to referral code successfully',
+      referral: populatedReferral,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 export default router;
 

@@ -111,7 +111,7 @@ export default function MyVouchers() {
                   <div className="space-y-3">
                     {available.map((voucher) => {
                       const imageUrl = voucher.reward?.imageUrl 
-                        ? (voucher.reward.imageUrl.startsWith('http') 
+                        ? (voucher.reward.imageUrl.startsWith('http://') || voucher.reward.imageUrl.startsWith('https://')
                             ? voucher.reward.imageUrl 
                             : `${getBaseApiUrl()}${voucher.reward.imageUrl}`)
                         : null;
@@ -159,7 +159,7 @@ export default function MyVouchers() {
                   <div className="space-y-3">
                     {used.map((voucher) => {
                       const imageUrl = voucher.reward?.imageUrl 
-                        ? (voucher.reward.imageUrl.startsWith('http') 
+                        ? (voucher.reward.imageUrl.startsWith('http://') || voucher.reward.imageUrl.startsWith('https://')
                             ? voucher.reward.imageUrl 
                             : `${getBaseApiUrl()}${voucher.reward.imageUrl}`)
                         : null;

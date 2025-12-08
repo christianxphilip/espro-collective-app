@@ -358,7 +358,7 @@ export default function RandomCardReveal({
 
   // Construct full image URL
   const imageUrl = currentCard.imageUrl 
-    ? (currentCard.imageUrl.startsWith('http') 
+    ? (currentCard.imageUrl.startsWith('http://') || currentCard.imageUrl.startsWith('https://')
         ? currentCard.imageUrl 
         : `${getBaseApiUrl()}${currentCard.imageUrl}`)
     : null;

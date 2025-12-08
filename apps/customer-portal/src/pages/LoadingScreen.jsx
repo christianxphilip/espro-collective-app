@@ -14,7 +14,7 @@ export default function LoadingScreen() {
   });
   
   const logoUrl = settingsResponse?.logoUrl 
-    ? (settingsResponse.logoUrl.startsWith('http')
+    ? (settingsResponse.logoUrl.startsWith('http://') || settingsResponse.logoUrl.startsWith('https://')
         ? settingsResponse.logoUrl
         : `${getBaseApiUrl()}${settingsResponse.logoUrl}`)
     : null;
