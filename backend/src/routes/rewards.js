@@ -19,19 +19,9 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads/rewards'));
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'reward-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
+// Configure multer for file uploads (images only)
 const upload = multer({
-  storage,
+  storage: getStorage('rewards'),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
@@ -47,13 +37,23 @@ const upload = multer({
 });
 
 // Combined multer for images and CSV files
+// CSV files must use local storage (for parsing), images can use S3
 const combinedStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // CSV files go to temp, images go to rewards folder
+    // CSV files go to temp (must be local for parsing)
     if (file.fieldname === 'voucherCodes' || file.originalname.endsWith('.csv')) {
-      cb(null, path.join(__dirname, '../../uploads/temp'));
+      const tempDir = path.join(__dirname, '../../uploads/temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      cb(null, tempDir);
     } else {
-      cb(null, path.join(__dirname, '../../uploads/rewards'));
+      // Images use storage service (S3 or local)
+      const rewardsDir = path.join(__dirname, '../../uploads/rewards');
+      if (!fs.existsSync(rewardsDir)) {
+        fs.mkdirSync(rewardsDir, { recursive: true });
+      }
+      cb(null, rewardsDir);
     }
   },
   filename: (req, file, cb) => {
@@ -114,21 +114,6 @@ router.post('/claim/:id', protect, async (req, res) => {
         success: false,
         message: 'Reward is not available',
       });
-    }
-
-    // Check if user has reached the claim limit for this reward
-    if (reward.maxClaimsPerUser !== -1 && reward.maxClaimsPerUser > 0) {
-      const existingClaimsCount = await Claim.countDocuments({
-        user: userId,
-        reward: rewardId,
-      });
-      
-      if (existingClaimsCount >= reward.maxClaimsPerUser) {
-        return res.status(400).json({
-          success: false,
-          message: `You have already claimed this reward the maximum number of times (${reward.maxClaimsPerUser}).`,
-        });
-      }
     }
 
     // Handle card design rewards differently
@@ -991,7 +976,7 @@ router.post('/', combinedUpload.fields([
   { name: 'voucherCodes', maxCount: 1 },
 ]), async (req, res) => {
   try {
-    const { name, description, esproCoinsRequired, quantity, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId, maxClaimsPerUser } = req.body;
+    const { name, description, esproCoinsRequired, quantity, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId } = req.body;
 
     const rewardData = {
       title: name,
@@ -1003,7 +988,6 @@ router.post('/', combinedUpload.fields([
       voucherUploadRequired: voucherUploadRequired === 'true' || voucherUploadRequired === true,
       rewardType: rewardType || 'voucher',
       odooRewardId: odooRewardId ? parseInt(odooRewardId) : null,
-      maxClaimsPerUser: maxClaimsPerUser !== undefined && maxClaimsPerUser !== '' && maxClaimsPerUser !== null ? parseInt(maxClaimsPerUser) : -1,
     };
 
     // Handle card design rewards
@@ -1056,11 +1040,13 @@ router.post('/', combinedUpload.fields([
     }
 
     if (req.files?.image) {
-      rewardData.imageUrl = `/uploads/rewards/${req.files.image[0].filename}`;
+      const file = req.files.image[0];
+      rewardData.imageUrl = file.location || getFileUrl(file.filename, 'rewards');
     }
 
     if (req.files?.voucherImage) {
-      rewardData.voucherImageUrl = `/uploads/rewards/${req.files.voucherImage[0].filename}`;
+      const voucherFile = req.files.voucherImage[0];
+      rewardData.voucherImageUrl = voucherFile.location || getFileUrl(voucherFile.filename, 'rewards');
     }
 
     // Parse voucher codes CSV if provided (not required if claimableAtStore is true)
@@ -1124,7 +1110,7 @@ router.put('/:id', combinedUpload.fields([
   { name: 'voucherCodes', maxCount: 1 },
 ]), async (req, res) => {
   try {
-    const { name, description, esproCoinsRequired, quantity, voucherCodePrefix, isActive, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId, maxClaimsPerUser } = req.body;
+    const { name, description, esproCoinsRequired, quantity, voucherCodePrefix, isActive, claimableAtStore, voucherUploadRequired, rewardType, cardDesignIds, odooRewardId } = req.body;
 
     const reward = await Reward.findById(req.params.id);
     if (!reward) {
@@ -1144,14 +1130,6 @@ router.put('/:id', combinedUpload.fields([
     if (voucherUploadRequired !== undefined) reward.voucherUploadRequired = voucherUploadRequired === 'true' || voucherUploadRequired === true;
     if (rewardType) reward.rewardType = rewardType;
     if (odooRewardId !== undefined) reward.odooRewardId = odooRewardId ? parseInt(odooRewardId) : null;
-    if (maxClaimsPerUser !== undefined) {
-      // Handle empty string or null as -1 (unlimited)
-      if (maxClaimsPerUser === '' || maxClaimsPerUser === null) {
-        reward.maxClaimsPerUser = -1;
-      } else {
-        reward.maxClaimsPerUser = parseInt(maxClaimsPerUser);
-      }
-    }
 
     // Handle card design rewards
     if (reward.rewardType === 'specificCardDesign' || reward.rewardType === 'randomCardDesign') {
@@ -1212,7 +1190,8 @@ router.put('/:id', combinedUpload.fields([
     }
 
     if (req.files?.voucherImage) {
-      reward.voucherImageUrl = `/uploads/rewards/${req.files.voucherImage[0].filename}`;
+      const voucherFile = req.files.voucherImage[0];
+      reward.voucherImageUrl = voucherFile.location || getFileUrl(voucherFile.filename, 'rewards');
     }
 
     // Parse and append new voucher codes from CSV if provided

@@ -6,9 +6,23 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
 import fs from 'fs';
+import { getStorage, getFileUrl, deleteFile, isUsingS3 } from '../services/storage.js';
+import { S3Client } from '@aws-sdk/client-s3';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize S3 client if credentials are available (for image processing)
+let s3Client = null;
+if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_S3_BUCKET) {
+  s3Client = new S3Client({
+    region: process.env.AWS_REGION || 'us-east-1',
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+  });
+}
 
 const router = express.Router();
 
@@ -32,19 +46,113 @@ async function resizeImageToCardDimensions(inputPath, outputPath) {
   }
 }
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads/collectibles'));
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'collectible-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// Helper function to process uploaded image (handles both S3 and local storage)
+async function processUploadedImage(file, uploadType = 'collectibles', prefix = '') {
+  const fileExt = path.extname(file.originalname).toLowerCase();
+  const isSvg = fileExt === '.svg';
+  
+  // Get file info based on storage type
+  const isS3 = !!file.location; // S3 provides location property
+  const fileKey = file.key || file.filename; // S3 key or local filename
+  const originalUrl = file.location || getFileUrl(file.path || fileKey, uploadType);
+  
+  if (isSvg) {
+    // SVG files don't need resizing
+    return {
+      imageUrl: originalUrl,
+      needsResize: false,
+    };
+  }
+  
+  // For S3, we need to download, resize, and upload back
+  if (isS3) {
+    try {
+      const { GetObjectCommand, PutObjectCommand } = await import('@aws-sdk/client-s3');
+      const axios = (await import('axios')).default;
+      
+      // Download image from S3
+      const getCommand = new GetObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: fileKey,
+      });
+      
+      const response = await s3Client.send(getCommand);
+      const imageBuffer = await streamToBuffer(response.Body);
+      
+      // Resize image
+      const resizedBuffer = await sharp(imageBuffer)
+        .resize(CARD_WIDTH, CARD_HEIGHT, {
+          fit: 'cover',
+          position: 'center',
+        })
+        .toBuffer();
+      
+      // Upload resized image back to S3
+      const resizedKey = `${uploadType}/${prefix}resized-${path.basename(fileKey)}`;
+      const putCommand = new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: resizedKey,
+        Body: resizedBuffer,
+        ContentType: file.mimetype || 'image/png',
+        ACL: 'public-read',
+      });
+      
+      await s3Client.send(putCommand);
+      
+      // Delete original from S3
+      const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: fileKey,
+      });
+      await s3Client.send(deleteCommand);
+      
+      // Return resized image URL
+      return {
+        imageUrl: getFileUrl(resizedKey, uploadType),
+        needsResize: false,
+      };
+    } catch (error) {
+      console.error('[Collectibles] Error processing S3 image:', error);
+      return {
+        imageUrl: originalUrl,
+        needsResize: false,
+      };
+    }
+  } else {
+    // Local storage - use existing resize logic
+    const originalPath = file.path;
+    const resizedPath = path.join(__dirname, '../../uploads', uploadType, `${prefix}resized-${file.filename}`);
+    const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
+    
+    if (resizeSuccess) {
+      // Delete original and use resized version
+      fs.unlinkSync(originalPath);
+      return {
+        imageUrl: getFileUrl(`resized-${file.filename}`, uploadType),
+        needsResize: false,
+      };
+    } else {
+      return {
+        imageUrl: getFileUrl(file.filename, uploadType),
+        needsResize: false,
+      };
+    }
+  }
+}
 
+// Helper to convert stream to buffer
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+// Configure multer for file uploads using storage service
 const upload = multer({
-  storage,
+  storage: getStorage('collectibles'),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
@@ -126,30 +234,12 @@ router.post('/', upload.fields([
       });
       
       const file = req.files.image[0];
-      const originalPath = file.path;
-      const fileExt = path.extname(file.originalname).toLowerCase();
-      const isSvg = fileExt === '.svg';
-      
-      if (isSvg) {
-        // SVG files don't need resizing (they're vector graphics)
-        collectibleData.imageUrl = `/uploads/collectibles/${file.filename}`;
-        console.log('[Collectibles] SVG image saved:', collectibleData.imageUrl);
-      } else {
-        // Resize raster images to card dimensions
-        const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-${file.filename}`);
-        const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
-        
-        if (resizeSuccess) {
-          // Delete original and use resized version
-          fs.unlinkSync(originalPath);
-          collectibleData.imageUrl = `/uploads/collectibles/resized-${file.filename}`;
-          console.log('[Collectibles] Resized image saved:', collectibleData.imageUrl);
-        } else {
-          // If resize fails, use original (but warn)
-          collectibleData.imageUrl = `/uploads/collectibles/${file.filename}`;
-          console.log('[Collectibles] Original image saved (resize failed):', collectibleData.imageUrl);
-        }
-      }
+      const processed = await processUploadedImage(file, 'collectibles');
+      collectibleData.imageUrl = processed.imageUrl;
+      console.log('[Collectibles] Image processed:', {
+        imageUrl: collectibleData.imageUrl,
+        isS3: !!file.location,
+      });
       
       // Only override designType to 'image' if it wasn't explicitly set to 'reward' or 'solid'
       // Reward type can have images but should stay as 'reward'
@@ -175,27 +265,12 @@ router.post('/', upload.fields([
     // Handle back card image upload
     if (req.files && req.files.backCardImage && req.files.backCardImage[0]) {
       const file = req.files.backCardImage[0];
-      const originalPath = file.path;
-      const fileExt = path.extname(file.originalname).toLowerCase();
-      const isSvg = fileExt === '.svg';
-      
-      if (isSvg) {
-        // SVG files don't need resizing (they're vector graphics)
-        collectibleData.backCardImageUrl = `/uploads/collectibles/${file.filename}`;
-      } else {
-        // Resize raster images to card dimensions
-        const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-back-${file.filename}`);
-        const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
-        
-        if (resizeSuccess) {
-          // Delete original and use resized version
-          fs.unlinkSync(originalPath);
-          collectibleData.backCardImageUrl = `/uploads/collectibles/resized-back-${file.filename}`;
-        } else {
-          // If resize fails, use original (but warn)
-          collectibleData.backCardImageUrl = `/uploads/collectibles/${file.filename}`;
-        }
-      }
+      const processed = await processUploadedImage(file, 'collectibles', 'back-');
+      collectibleData.backCardImageUrl = processed.imageUrl;
+      console.log('[Collectibles] Back card image processed:', {
+        imageUrl: collectibleData.backCardImageUrl,
+        isS3: !!file.location,
+      });
     } else if (backCardImageUrl) {
       // Handle AI-generated or existing back card image URL
       collectibleData.backCardImageUrl = backCardImageUrl;
@@ -314,27 +389,12 @@ router.put('/:id', upload.fields([
     // Handle front card image upload
     if (req.files && req.files.image && req.files.image[0]) {
       const file = req.files.image[0];
-      const originalPath = file.path;
-      const fileExt = path.extname(file.originalname).toLowerCase();
-      const isSvg = fileExt === '.svg';
-      
-      if (isSvg) {
-        // SVG files don't need resizing (they're vector graphics)
-        collectible.imageUrl = `/uploads/collectibles/${file.filename}`;
-      } else {
-        // Resize raster images to card dimensions
-        const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-${file.filename}`);
-        const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
-        
-        if (resizeSuccess) {
-          // Delete original and use resized version
-          fs.unlinkSync(originalPath);
-          collectible.imageUrl = `/uploads/collectibles/resized-${file.filename}`;
-        } else {
-          // If resize fails, use original (but warn)
-          collectible.imageUrl = `/uploads/collectibles/${file.filename}`;
-        }
-      }
+      const processed = await processUploadedImage(file, 'collectibles');
+      collectible.imageUrl = processed.imageUrl;
+      console.log('[Collectibles] Image updated:', {
+        imageUrl: collectible.imageUrl,
+        isS3: !!file.location,
+      });
       
       // Only override designType to 'image' if it wasn't explicitly set to something else
       if (!designType || designType === 'gradient' || designType === 'solid') {

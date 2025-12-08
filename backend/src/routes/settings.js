@@ -5,6 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { getStorage, getFileUrl, deleteFile } from '../services/storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -130,7 +131,7 @@ router.put('/', upload.single('logo'), async (req, res) => {
       }
       
       // Save new logo path
-      const logoPath = `/uploads/settings/${req.file.filename}`;
+      const logoPath = req.file.location || getFileUrl(req.file.filename, 'settings');
       settings.logoUrl = logoPath;
       console.log('[Settings] Logo uploaded via PUT:', {
         filename: req.file.filename,
@@ -221,15 +222,15 @@ router.post('/logo', upload.single('logo'), async (req, res) => {
     
     // Delete old logo if exists
     if (settings.logoUrl) {
-      const oldLogoPath = path.join(__dirname, '../../', settings.logoUrl);
-      if (fs.existsSync(oldLogoPath)) {
-        console.log('[Settings] Deleting old logo:', oldLogoPath);
-        fs.unlinkSync(oldLogoPath);
+      try {
+        await deleteFile(settings.logoUrl, 'settings');
+      } catch (error) {
+        console.error('[Settings] Error deleting old logo:', error);
       }
     }
     
-    // Save new logo path (relative to uploads directory)
-    const logoPath = `/uploads/settings/${req.file.filename}`;
+    // Save new logo path
+    const logoPath = req.file.location || getFileUrl(req.file.filename, 'settings');
     settings.logoUrl = logoPath;
     await settings.save();
     

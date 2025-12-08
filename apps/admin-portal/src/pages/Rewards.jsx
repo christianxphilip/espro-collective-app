@@ -22,7 +22,6 @@ export default function Rewards() {
     rewardType: 'voucher', // New: 'voucher', 'specificCardDesign', 'randomCardDesign'
     cardDesignIds: [], // New: array of card design IDs
     odooRewardId: '', // Odoo program_id for voucher rewards
-    maxClaimsPerUser: '', // Limit claims per user (-1 for unlimited, or number like 1)
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [previewVoucherImage, setPreviewVoucherImage] = useState(null);
@@ -123,7 +122,6 @@ export default function Rewards() {
       rewardType: 'voucher',
       cardDesignIds: [],
       odooRewardId: '',
-      maxClaimsPerUser: '',
     });
     setPreviewImage(null);
     setPreviewVoucherImage(null);
@@ -134,12 +132,12 @@ export default function Rewards() {
     const imageUrl = reward.imageUrl 
       ? (reward.imageUrl.startsWith('http') 
           ? reward.imageUrl 
-          : `${getBaseApiUrl()}${reward.imageUrl}`)
+          : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000'}${reward.imageUrl}`)
       : null;
     const voucherImageUrl = reward.voucherImageUrl 
       ? (reward.voucherImageUrl.startsWith('http') 
           ? reward.voucherImageUrl 
-          : `${getBaseApiUrl()}${reward.voucherImageUrl}`)
+          : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000'}${reward.voucherImageUrl}`)
       : null;
     
     setFormData({
@@ -156,7 +154,6 @@ export default function Rewards() {
       rewardType: reward.rewardType || 'voucher',
       cardDesignIds: reward.cardDesignIds || [],
       odooRewardId: reward.odooRewardId || '',
-      maxClaimsPerUser: reward.maxClaimsPerUser !== undefined && reward.maxClaimsPerUser !== -1 ? reward.maxClaimsPerUser : '',
     });
     setPreviewImage(imageUrl);
     setPreviewVoucherImage(voucherImageUrl);
@@ -175,7 +172,6 @@ export default function Rewards() {
       rewardType: formData.rewardType,
       cardDesignIds: formData.rewardType === 'voucher' ? [] : (Array.isArray(formData.cardDesignIds) ? formData.cardDesignIds : [formData.cardDesignIds]),
       odooRewardId: formData.odooRewardId ? parseInt(formData.odooRewardId) : null,
-      maxClaimsPerUser: formData.maxClaimsPerUser !== '' && formData.maxClaimsPerUser !== null ? parseInt(formData.maxClaimsPerUser) : -1,
     };
 
     // Validate card design rewards
@@ -506,22 +502,6 @@ export default function Rewards() {
                       </div>
                     </>
                   )}
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Claims Per User
-                    </label>
-                    <input
-                      type="number"
-                      min="-1"
-                      value={formData.maxClaimsPerUser}
-                      onChange={(e) => setFormData({ ...formData, maxClaimsPerUser: e.target.value })}
-                      placeholder="Leave empty for unlimited"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Limit how many times each user can claim this reward. Leave empty for unlimited. Example: 1 = one claim per user only.
-                    </p>
-                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

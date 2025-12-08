@@ -3,28 +3,57 @@ import axios from 'axios';
 // Get API URL - use environment variable, or detect from current host, or fallback to localhost
 // Works with Render deployment
 function getApiUrl() {
-  // If environment variable is set, use it
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+  // Check for VITE_API_URL environment variable
+  // In Vite, env vars are embedded at build time, so they must be set during build
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  
+  // Log what we found for debugging
+  console.log('[API] Environment check:', {
+    hasViteApiUrl: !!envApiUrl,
+    viteApiUrlValue: envApiUrl,
+    allEnvVars: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
+  });
+  
+  // If environment variable is set and not empty, use it (ensure it ends with /api)
+  if (envApiUrl && typeof envApiUrl === 'string' && envApiUrl.trim() !== '') {
+    let apiUrl = envApiUrl.trim();
+    // Ensure it ends with /api
+    if (!apiUrl.endsWith('/api')) {
+      // Remove trailing slash if present, then add /api
+      apiUrl = apiUrl.replace(/\/$/, '') + '/api';
+    }
+    console.log('[API] Using VITE_API_URL:', apiUrl);
+    return apiUrl;
   }
+  
+  console.log('[API] VITE_API_URL not set or empty, detecting from hostname');
   
   // Detect current host and construct API URL
   const protocol = window.location.protocol;
   const hostname = window.location.hostname;
   
-  // For Render deployment: if hostname contains 'render.com' or 'onrender.com', try to detect backend service
-  // If VITE_API_URL is not set, we can't know the backend URL, so we'll need to rely on it being set
-  // In production, VITE_API_URL should always be set to point to the backend service
+  // For Render deployment: if hostname contains 'render.com' or 'onrender.com', use the backend service URL
+  if (hostname.includes('render.com') || hostname.includes('onrender.com')) {
+    // Backend service name: espro-backend
+    // Render URLs format: service-name.onrender.com
+    const renderUrl = `${protocol}//espro-backend.onrender.com/api`;
+    console.log('[API] Using Render backend URL:', renderUrl);
+    return renderUrl;
+  }
   
   // If accessing via IP or domain (local deployment), use the same host with backend port
   // Backend runs on port 8000
   if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
     // Use the same hostname but with backend port
-    return `${protocol}//${hostname}:8000/api`;
+    const detectedUrl = `${protocol}//${hostname}:8000/api`;
+    console.log('[API] Using detected URL:', detectedUrl);
+    return detectedUrl;
   }
   
   // Fallback to localhost
-  return 'http://localhost:8000/api';
+  const fallbackUrl = 'http://localhost:8000/api';
+  console.log('[API] Using fallback URL:', fallbackUrl);
+  return fallbackUrl;
 }
 
 const API_URL = getApiUrl();
@@ -111,7 +140,6 @@ export const referralsAPI = {
   update: (id, data) => api.put(`/admin/referrals/${id}`, data),
   delete: (id) => api.delete(`/admin/referrals/${id}`),
   getUsers: (id) => api.get(`/admin/referrals/${id}/users`),
-  addUser: (id, userId) => api.post(`/admin/referrals/${id}/add-user`, { userId }),
 };
 
 export const rewardsAPI = {

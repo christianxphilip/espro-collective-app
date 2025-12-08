@@ -92,7 +92,6 @@ router.get('/customers', async (req, res) => {
     const customers = await User.find(query)
       .select('-password')
       .populate('activeCardDesign')
-      .populate('referralCodes.referralCode', 'code name')
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip((page - 1) * limit);

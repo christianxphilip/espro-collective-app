@@ -23,6 +23,14 @@ services:
         value: espressionist.pos@gmail.com
       - key: ODOO_PASSWORD
         value: Coffee@0118
+      - key: AWS_ACCESS_KEY_ID
+        value: AKIAVS4IBMXRW7H6RJCH
+      - key: AWS_SECRET_ACCESS_KEY
+        value: 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
+      - key: AWS_S3_BUCKET
+        value: espro-collective
+      - key: AWS_REGION
+        value: us-east-1
     healthCheckPath: /api/health
 
   # Customer Portal (Static Site)
@@ -44,3 +52,6 @@ services:
     region: oregon
     branch: master
     plan: free
+    envVars:
+      - key: VITE_API_URL
+        value: https://espro-backend.onrender.com/api
