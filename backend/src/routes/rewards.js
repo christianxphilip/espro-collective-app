@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { protect, requireAdmin } from '../middleware/auth.js';
 import Reward from '../models/Reward.js';
 import Claim from '../models/Claim.js';
+import ClaimLock from '../models/ClaimLock.js';
 import User from '../models/User.js';
 import Collectible from '../models/Collectible.js';
 import PointsTransaction from '../models/PointsTransaction.js';
@@ -96,9 +97,28 @@ const combinedUpload = multer({
 // @desc    Claim a reward (idempotent - same request returns same claim)
 // @access  Private
 router.post('/claim/:id', protect, async (req, res) => {
+  const userId = req.user._id;
+  const rewardId = req.params.id;
+  let lockAcquired = false;
+
   try {
-    const userId = req.user._id;
-    const rewardId = req.params.id;
+    // Acquire distributed lock to prevent concurrent claims
+    try {
+      await ClaimLock.create({
+        user: userId,
+        reward: rewardId,
+      });
+      lockAcquired = true;
+    } catch (lockError) {
+      // Lock already exists (another request is processing)
+      if (lockError.code === 11000) {
+        return res.status(429).json({
+          success: false,
+          message: 'A claim request is already being processed. Please wait a moment and try again.',
+        });
+      }
+      throw lockError;
+    }
 
     // Get fresh copy of reward
     const reward = await Reward.findById(rewardId);
@@ -117,7 +137,7 @@ router.post('/claim/:id', protect, async (req, res) => {
       });
     }
 
-    // Check if user has reached the claim limit for this reward
+    // Check if user has reached the claim limit for this reward (atomic check within lock)
     if (reward.maxClaimsPerUser !== -1 && reward.maxClaimsPerUser > 0) {
       const existingClaimsCount = await Claim.countDocuments({
         user: userId,
@@ -935,6 +955,19 @@ router.post('/claim/:id', protect, async (req, res) => {
       success: false,
       message: error.message || 'Failed to claim reward',
     });
+  } finally {
+    // Release the lock
+    if (lockAcquired) {
+      try {
+        await ClaimLock.deleteOne({
+          user: userId,
+          reward: rewardId,
+        });
+      } catch (lockError) {
+        console.error('[Reward Claim] Error releasing lock:', lockError.message);
+        // Lock will auto-expire after 30 seconds anyway
+      }
+    }
   }
 });
 

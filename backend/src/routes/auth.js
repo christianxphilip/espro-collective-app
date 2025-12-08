@@ -4,7 +4,7 @@ import AvailableLoyaltyId from '../models/AvailableLoyaltyId.js';
 import ReferralCode from '../models/ReferralCode.js';
 import Settings from '../models/Settings.js';
 import { generateToken, protect } from '../middleware/auth.js';
-import { createOdooPartner, createOdooLoyaltyCard } from '../services/odooSync.js';
+import { createOdooPartner, createOdooLoyaltyCard, updateOdooPartnerBarcode } from '../services/odooSync.js';
 
 const router = express.Router();
 
@@ -129,6 +129,19 @@ router.post('/register', async (req, res) => {
         odooCardId = loyaltyCardData.id;
         odooLoyaltyCode = loyaltyCardData.code;
         
+        // Step 3: Update partner barcode with the loyalty code
+        if (odooLoyaltyCode) {
+          try {
+            console.log(`[Registration] Updating partner barcode for partner ID: ${odooPartnerId} with code: ${odooLoyaltyCode}`);
+            await updateOdooPartnerBarcode(odooPartnerId, odooLoyaltyCode);
+            console.log(`[Registration] Partner barcode updated successfully`);
+          } catch (barcodeError) {
+            console.error('[Registration] Failed to update partner barcode:', barcodeError.message);
+            // Don't fail registration if barcode update fails, but log the error
+            console.warn('[Registration] Proceeding with registration despite barcode update error');
+          }
+        }
+        
         console.log(`[Registration] Odoo integration successful:`, {
           partnerId: odooPartnerId,
           cardId: odooCardId,
@@ -151,6 +164,7 @@ router.post('/register', async (req, res) => {
       password,
       loyaltyId: odooLoyaltyCode || availableLoyaltyId?.loyaltyId || undefined, // Use Odoo code if available, then CSV, otherwise undefined
       odooCardId: odooCardId || undefined, // Store Odoo card ID if available
+      barcode: odooLoyaltyCode || undefined, // Store loyalty code from Odoo as barcode
       esproCoins: availableLoyaltyId?.points || 0, // Use points from CSV if available, otherwise 0
       lifetimeEsproCoins: availableLoyaltyId?.points || 0, // Set initial lifetime coins to points from CSV if available
     };

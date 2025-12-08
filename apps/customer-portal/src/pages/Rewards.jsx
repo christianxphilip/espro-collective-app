@@ -19,6 +19,7 @@ export default function Rewards() {
   const [showRandomReveal, setShowRandomReveal] = useState(false);
   const [revealedCardDesign, setRevealedCardDesign] = useState(null);
   const [revealReward, setRevealReward] = useState(null);
+  const [claimingRewardId, setClaimingRewardId] = useState(null); // Track which reward is being claimed
   const queryClient = useQueryClient();
 
   const { data: rewards, isLoading } = useQuery({
@@ -59,6 +60,7 @@ export default function Rewards() {
       
       setSelectedReward(null);
       setShowConfirmModal(false);
+      setClaimingRewardId(null); // Clear claiming state
 
       // Handle different reward types
       const claim = data?.data?.claim;
@@ -314,6 +316,7 @@ export default function Rewards() {
     },
     onError: (error) => {
       setShowConfirmModal(false);
+      setClaimingRewardId(null); // Clear claiming state on error
       setToast({
         isOpen: true,
         message: error.response?.data?.message || 'Failed to claim reward',
@@ -323,6 +326,11 @@ export default function Rewards() {
   });
 
   const handleClaimClick = (reward) => {
+    // Prevent double clicks - if already claiming this reward, ignore
+    if (claimingRewardId === reward._id || claimMutation.isLoading) {
+      return;
+    }
+
     if (user.esproCoins < reward.esproCoinsRequired) {
       setToast({
         isOpen: true,
@@ -336,7 +344,9 @@ export default function Rewards() {
   };
 
   const handleConfirmClaim = () => {
-    if (selectedReward) {
+    if (selectedReward && !claimingRewardId) {
+      // Set claiming state immediately to prevent double clicks
+      setClaimingRewardId(selectedReward._id);
       claimMutation.mutate(selectedReward._id);
     }
   };
@@ -489,13 +499,13 @@ export default function Rewards() {
                         ) : canClaimReward ? (
                           <button
                             onClick={() => handleClaimClick(reward)}
-                            disabled={claimMutation.isLoading}
+                            disabled={claimMutation.isLoading || claimingRewardId === reward._id}
                             className="px-5 py-2 rounded-full font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             style={{
                               backgroundColor: borderColor,
                             }}
                           >
-                            {claimMutation.isLoading && selectedReward?._id === reward._id ? (
+                            {(claimMutation.isLoading && selectedReward?._id === reward._id) || claimingRewardId === reward._id ? (
                               <>
                                 <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

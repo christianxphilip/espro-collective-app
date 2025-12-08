@@ -452,6 +452,97 @@ export async function createOdooLoyaltyCard(partnerId) {
 }
 
 /**
+ * Update partner barcode in Odoo
+ * @param {number} partnerId - Partner ID from Odoo
+ * @param {string} barcode - Barcode/loyalty code to set
+ * @returns {Promise<boolean>} Success status
+ */
+export async function updateOdooPartnerBarcode(partnerId, barcode) {
+  try {
+    // Ensure we're authenticated
+    const currentSessionId = await ensureAuthenticated();
+    
+    console.log(`[Odoo Sync] Updating partner barcode in Odoo for partner ID: ${partnerId} with barcode: ${barcode}`);
+    
+    // Generate a unique ID for this request
+    const requestId = Math.floor(Math.random() * 1000) + 1;
+    
+    const payload = {
+      id: requestId,
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        model: "res.partner",
+        method: "web_save",
+        args: [
+          [partnerId],
+          {
+            barcode: barcode
+          }
+        ],
+        kwargs: {
+          context: {
+            lang: "en_US",
+            tz: "Asia/Manila",
+            uid: 2,
+            allowed_company_ids: [1],
+            params: {
+              resId: partnerId,
+              action: "customers",
+              actionStack: [
+                { action: "customers" },
+                { resId: partnerId, action: "customers" }
+              ]
+            },
+            res_partner_search_mode: "customer",
+            default_is_company: true,
+            default_customer_rank: 1
+          },
+          specification: {
+            barcode: {}
+          }
+        }
+      }
+    };
+    
+    const apiCookieString = sessionCookies || `frontend_lang=en_US; cids=1; session_id=${currentSessionId}; tz=Asia/Manila`;
+    
+    const response = await client.post('/web/dataset/call_kw/res.partner/web_save', payload, {
+      headers: {
+        'Cookie': apiCookieString,
+        'Referer': `${ODOO_URL}/odoo/customers/${partnerId}`,
+      },
+    });
+    
+    if (response.data.error) {
+      console.error('[Odoo Sync] Error updating partner barcode:', response.data.error);
+      throw new Error(response.data.error.message || 'Failed to update partner barcode in Odoo');
+    }
+    
+    const partnerData = response.data.result?.[0];
+    
+    if (!partnerData || !partnerData.id) {
+      console.error('[Odoo Sync] No partner data in response:', response.data);
+      throw new Error('Failed to get partner data from Odoo response');
+    }
+    
+    console.log(`[Odoo Sync] Partner barcode updated successfully:`, {
+      partnerId: partnerData.id,
+      barcode: partnerData.barcode
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('[Odoo Sync] Error updating partner barcode:', error.message);
+    if (error.response) {
+      console.error('[Odoo Sync] Response status:', error.response.status);
+      console.error('[Odoo Sync] Response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    throw error;
+  }
+}
+
+/**
  * Fetch loyalty cards from Odoo
  */
 async function fetchLoyaltyCards() {

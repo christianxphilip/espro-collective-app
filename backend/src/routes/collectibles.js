@@ -29,6 +29,9 @@ const router = express.Router();
 // Card dimensions constants
 const CARD_WIDTH = 428;
 const CARD_HEIGHT = 380;
+// Mobile card dimensions (for smaller screens like iPhone 14)
+const MOBILE_CARD_WIDTH = 340; // Smaller width for mobile screens
+const MOBILE_CARD_HEIGHT = 300; // Smaller height for mobile screens
 
 // Helper function to resize image to card dimensions
 async function resizeImageToCardDimensions(inputPath, outputPath) {
@@ -141,6 +144,71 @@ async function processUploadedImage(file, uploadType = 'collectibles', prefix = 
   }
 }
 
+// Helper function to process mobile image (similar to processUploadedImage but with mobile dimensions)
+async function processMobileImage(file, uploadType = 'collectibles', prefix = 'mobile-') {
+  const fileExt = path.extname(file.originalname).toLowerCase();
+  const isSvg = fileExt === '.svg';
+  
+  const isS3 = !!file.location;
+  const fileKey = file.key || file.filename;
+  const originalUrl = file.location || getFileUrl(file.path || fileKey, uploadType);
+  
+  if (isSvg) {
+    return { imageUrl: originalUrl, needsResize: false };
+  }
+  
+  if (isS3) {
+    try {
+      const { GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+      
+      const getCommand = new GetObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: fileKey,
+      });
+      const response = await s3Client.send(getCommand);
+      const imageBuffer = await streamToBuffer(response.Body);
+      
+      const resizedBuffer = await sharp(imageBuffer)
+        .resize(MOBILE_CARD_WIDTH, MOBILE_CARD_HEIGHT, { fit: 'cover', position: 'center' })
+        .toBuffer();
+      
+      const resizedKey = `${uploadType}/${prefix}resized-${path.basename(fileKey)}`;
+      const putCommand = new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: resizedKey,
+        Body: resizedBuffer,
+        ContentType: file.mimetype || 'image/png',
+      });
+      await s3Client.send(putCommand);
+      
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: fileKey,
+      });
+      await s3Client.send(deleteCommand);
+      
+      return { imageUrl: getFileUrl(resizedKey, uploadType), needsResize: false };
+    } catch (error) {
+      console.error('[Collectibles] Error processing S3 mobile image:', error);
+      return { imageUrl: originalUrl, needsResize: false };
+    }
+  } else {
+    const originalPath = file.path;
+    const resizedPath = path.join(__dirname, '../../uploads', uploadType, `${prefix}resized-${file.filename}`);
+    
+    try {
+      await sharp(originalPath)
+        .resize(MOBILE_CARD_WIDTH, MOBILE_CARD_HEIGHT, { fit: 'cover', position: 'center' })
+        .toFile(resizedPath);
+      fs.unlinkSync(originalPath);
+      return { imageUrl: getFileUrl(`${prefix}resized-${file.filename}`, uploadType), needsResize: false };
+    } catch (error) {
+      console.error('[Collectibles] Error resizing mobile image:', error);
+      return { imageUrl: getFileUrl(file.filename, uploadType), needsResize: false };
+    }
+  }
+}
+
 // Helper to convert stream to buffer
 async function streamToBuffer(stream) {
   const chunks = [];
@@ -209,10 +277,11 @@ router.get('/admin', async (req, res) => {
 // @access  Private/Admin
 router.post('/', upload.fields([
   { name: 'image', maxCount: 1 },
+  { name: 'mobileImage', maxCount: 1 },
   { name: 'backCardImage', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const { name, description, lifetimeEsproCoinsRequired, designType, primaryColor, secondaryColor, solidColor, isDefault, imageUrl, textColor, backCardColor, backCardImageUrl } = req.body;
+    const { name, description, lifetimeEsproCoinsRequired, designType, primaryColor, secondaryColor, solidColor, isDefault, imageUrl, mobileImageUrl, textColor, backCardColor, backCardImageUrl } = req.body;
 
     const collectibleData = {
       name,
@@ -260,6 +329,20 @@ router.post('/', upload.fields([
         hasImage: !!(req.files && req.files.image),
         designType
       });
+    }
+    
+    // Handle mobile image upload (for small screens)
+    if (req.files && req.files.mobileImage && req.files.mobileImage[0]) {
+      const file = req.files.mobileImage[0];
+      const processed = await processMobileImage(file, 'collectibles');
+      collectibleData.mobileImageUrl = processed.imageUrl;
+      console.log('[Collectibles] Mobile image processed:', {
+        mobileImageUrl: collectibleData.mobileImageUrl,
+        isS3: !!file.location,
+      });
+    } else if (mobileImageUrl) {
+      // Handle AI-generated or existing mobile image URL
+      collectibleData.mobileImageUrl = mobileImageUrl;
     }
     
     // Handle back card image upload
@@ -346,6 +429,7 @@ router.post('/', upload.fields([
 // @access  Private/Admin
 router.put('/:id', upload.fields([
   { name: 'image', maxCount: 1 },
+  { name: 'mobileImage', maxCount: 1 },
   { name: 'backCardImage', maxCount: 1 }
 ]), async (req, res) => {
   try {
@@ -357,7 +441,7 @@ router.put('/:id', upload.fields([
       });
     }
 
-    const { name, description, lifetimeEsproCoinsRequired, designType, primaryColor, secondaryColor, solidColor, isActive, isDefault, imageUrl, textColor, backCardColor, backCardImageUrl } = req.body;
+    const { name, description, lifetimeEsproCoinsRequired, designType, primaryColor, secondaryColor, solidColor, isActive, isDefault, imageUrl, mobileImageUrl, textColor, backCardColor, backCardImageUrl } = req.body;
 
     if (name) collectible.name = name;
     if (description !== undefined) collectible.description = description;
@@ -409,7 +493,34 @@ router.put('/:id', upload.fields([
         collectible.designType = 'image';
       }
       collectible.isAIGenerated = true;
-    } 
+    }
+    
+    // Handle mobile image upload (for small screens)
+    if (req.files && req.files.mobileImage && req.files.mobileImage[0]) {
+      const file = req.files.mobileImage[0];
+      // Delete old mobile image if it exists
+      if (collectible.mobileImageUrl && !collectible.mobileImageUrl.startsWith('http')) {
+        await deleteFile(collectible.mobileImageUrl, 'collectibles');
+      }
+      const processed = await processMobileImage(file, 'collectibles');
+      collectible.mobileImageUrl = processed.imageUrl;
+      console.log('[Collectibles] Mobile image updated:', {
+        mobileImageUrl: collectible.mobileImageUrl,
+        isS3: !!file.location,
+      });
+    } else if (mobileImageUrl !== undefined) {
+      // Handle AI-generated or existing mobile image URL, or clearing it
+      if (mobileImageUrl && mobileImageUrl.trim() !== '') {
+        collectible.mobileImageUrl = mobileImageUrl;
+      } else if (mobileImageUrl === '' || mobileImageUrl === null) {
+        // Clear mobile image if explicitly set to empty
+        if (collectible.mobileImageUrl && !collectible.mobileImageUrl.startsWith('http')) {
+          await deleteFile(collectible.mobileImageUrl, 'collectibles');
+        }
+        collectible.mobileImageUrl = null;
+      }
+    }
+    
     // Handle gradient colors (for gradient and reward types)
     if ((designType === 'gradient' || designType === 'reward') && primaryColor && secondaryColor) {
       collectible.gradientColors = {

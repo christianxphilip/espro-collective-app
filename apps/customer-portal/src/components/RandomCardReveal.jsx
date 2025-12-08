@@ -356,11 +356,16 @@ export default function RandomCardReveal({
     );
   }
 
-  // Construct full image URL
-  const imageUrl = currentCard.imageUrl 
-    ? (currentCard.imageUrl.startsWith('http://') || currentCard.imageUrl.startsWith('https://')
-        ? currentCard.imageUrl 
-        : `${getBaseApiUrl()}${currentCard.imageUrl}`)
+  // Construct full image URL - use mobile image on small screens if available
+  const isMobileScreen = window.innerWidth <= 768;
+  const baseImageUrl = isMobileScreen && currentCard.mobileImageUrl 
+    ? currentCard.mobileImageUrl 
+    : currentCard.imageUrl;
+  
+  const imageUrl = baseImageUrl 
+    ? (baseImageUrl.startsWith('http://') || baseImageUrl.startsWith('https://')
+        ? baseImageUrl 
+        : `${getBaseApiUrl()}${baseImageUrl}`)
     : null;
 
   const cardStyle =

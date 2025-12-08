@@ -11,6 +11,7 @@ export default function Collections() {
   const [showForm, setShowForm] = useState(false);
   const [editingCollectible, setEditingCollectible] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [previewMobileImage, setPreviewMobileImage] = useState(null);
   const [previewBackImage, setPreviewBackImage] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -21,6 +22,7 @@ export default function Collections() {
     secondaryColor: '#ff8c64',
     textColor: '#FFFFFF',
     image: null,
+    mobileImage: null,
     backCardColor: '',
     backCardImage: null,
     isDefault: false,
@@ -236,12 +238,14 @@ export default function Collections() {
       secondaryColor: '#ff8c64',
       textColor: '#FFFFFF',
       image: null,
+      mobileImage: null,
       backCardColor: '',
       backCardImage: null,
       isDefault: false,
       isActive: true,
     });
     setPreviewImage(null);
+    setPreviewMobileImage(null);
     setPreviewBackImage(null);
     setAiGeneratedImageUrl(null);
   };
@@ -252,6 +256,12 @@ export default function Collections() {
       ? (collectible.imageUrl.startsWith('http://') || collectible.imageUrl.startsWith('https://')
           ? collectible.imageUrl 
           : `${getBaseApiUrl()}${collectible.imageUrl}`)
+      : null;
+    
+    const mobileImageUrl = collectible.mobileImageUrl 
+      ? (collectible.mobileImageUrl.startsWith('http://') || collectible.mobileImageUrl.startsWith('https://')
+          ? collectible.mobileImageUrl 
+          : `${getBaseApiUrl()}${collectible.mobileImageUrl}`)
       : null;
     
     const backImageUrl = collectible.backCardImageUrl 
@@ -271,12 +281,14 @@ export default function Collections() {
       secondaryColor: collectible.gradientColors?.secondary || '#ff8c64',
       textColor: collectible.textColor || '#FFFFFF',
       image: null,
+      mobileImage: null,
       backCardColor: collectible.backCardColor || '',
       backCardImage: null,
       isDefault: collectible.isDefault || false,
       isActive: collectible.isActive !== undefined ? collectible.isActive : true,
     });
     setPreviewImage(imageUrl);
+    setPreviewMobileImage(mobileImageUrl);
     setPreviewBackImage(backImageUrl);
     setAiGeneratedImageUrl(collectible.imageUrl && !(imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) ? collectible.imageUrl : null);
     setShowForm(true);
@@ -331,6 +343,12 @@ export default function Collections() {
         });
       }
       
+      // Add mobile image (for small screens)
+      if (formData.mobileImage) {
+        console.log('[Collections] Adding mobile image file to FormData:', formData.mobileImage.name);
+        formDataToSend.append('mobileImage', formData.mobileImage);
+      }
+      
       // Add back card data - always send it, even if empty (to clear it)
       formDataToSend.append('backCardColor', formData.backCardColor || '');
       
@@ -346,6 +364,11 @@ export default function Collections() {
       // Add back card data - always send it, even if empty (to clear it)
       formDataToSend.append('backCardColor', formData.backCardColor || '');
       
+      // Add mobile image (for small screens)
+      if (formData.mobileImage) {
+        formDataToSend.append('mobileImage', formData.mobileImage);
+      }
+      
       // Add back card image
       if (formData.backCardImage) {
         formDataToSend.append('backCardImage', formData.backCardImage);
@@ -355,6 +378,11 @@ export default function Collections() {
       
       // Add back card data - always send it, even if empty (to clear it)
       formDataToSend.append('backCardColor', formData.backCardColor || '');
+      
+      // Add mobile image (for small screens)
+      if (formData.mobileImage) {
+        formDataToSend.append('mobileImage', formData.mobileImage);
+      }
       
       // Add back card image
       if (formData.backCardImage) {
@@ -370,6 +398,11 @@ export default function Collections() {
       
       // Add back card data - always send it, even if empty (to clear it)
       formDataToSend.append('backCardColor', formData.backCardColor || '');
+      
+      // Add mobile image (for small screens)
+      if (formData.mobileImage) {
+        formDataToSend.append('mobileImage', formData.mobileImage);
+      }
       
       // Add back card image
       if (formData.backCardImage) {
@@ -889,6 +922,50 @@ export default function Collections() {
                     </p>
                   </div>
                 )}
+                
+                {/* Mobile Image Upload (for small screens) */}
+                {(formData.designType === 'image' || formData.designType === 'reward') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Mobile Image (Optional - for small screens like iPhone 14)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*,.svg"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setFormData({ ...formData, mobileImage: file });
+                          setPreviewMobileImage(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                    {previewMobileImage && (
+                      <div className="mt-3">
+                        <img 
+                          src={previewMobileImage} 
+                          alt="Mobile Preview" 
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewMobileImage(null);
+                            setFormData({ ...formData, mobileImage: null });
+                          }}
+                          className="mt-2 text-xs text-red-600 hover:text-red-700"
+                        >
+                          Remove mobile image
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Upload a mobile-optimized image for small screens. Image will be automatically resized to 340×300px.
+                    </p>
+                  </div>
+                )}
+                
                 {/* Text Color Field */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Text Color</label>

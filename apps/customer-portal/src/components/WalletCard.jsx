@@ -2,10 +2,12 @@ import { useState } from 'react';
 import useAuthStore from '../store/authStore';
 import { formatEsproCoinsDisplay } from '../utils/format';
 import { getBaseApiUrl } from '../utils/api';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 export default function WalletCard() {
   const { user } = useAuthStore();
   const [isFlipped, setIsFlipped] = useState(false);
+  const isMobile = useIsMobile();
 
   const cardDesign = user?.activeCardDesign || {
     gradientColors: { primary: '#f66633', secondary: '#ff8c64' },
@@ -13,11 +15,15 @@ export default function WalletCard() {
     textColor: '#FFFFFF',
   };
 
-  // Construct full image URL for front
-  const imageUrl = cardDesign.imageUrl 
-    ? (cardDesign.imageUrl.startsWith('http://') || cardDesign.imageUrl.startsWith('https://')
-        ? cardDesign.imageUrl 
-        : `${getBaseApiUrl()}${cardDesign.imageUrl}`)
+  // Construct full image URL for front - use mobile image on small screens if available
+  const baseImageUrl = isMobile && cardDesign.mobileImageUrl 
+    ? cardDesign.mobileImageUrl 
+    : cardDesign.imageUrl;
+  
+  const imageUrl = baseImageUrl 
+    ? (baseImageUrl.startsWith('http://') || baseImageUrl.startsWith('https://')
+        ? baseImageUrl 
+        : `${getBaseApiUrl()}${baseImageUrl}`)
     : null;
 
   // Construct full image URL for back

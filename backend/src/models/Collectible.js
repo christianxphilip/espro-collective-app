@@ -15,6 +15,11 @@ const collectibleSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  // Mobile/small screen image (for responsive design)
+  mobileImageUrl: {
+    type: String,
+    trim: true,
+  },
   // For gradient-based designs
   gradientColors: {
     primary: {

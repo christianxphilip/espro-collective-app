@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema({
     type: Number,
     sparse: true,
   },
+  barcode: {
+    type: String,
+    sparse: true,
+  },
   esproCoins: {
     type: Number,
     default: 0,

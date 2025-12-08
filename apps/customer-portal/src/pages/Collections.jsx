@@ -125,11 +125,16 @@ export default function Collections() {
               const activeDesign = collectibles.find((c) => c._id === activeDesignId);
               if (!activeDesign) return null;
               
-              // Construct full image URL for front
-              const imageUrl = activeDesign.imageUrl 
-                ? (activeDesign.imageUrl.startsWith('http://') || activeDesign.imageUrl.startsWith('https://')
-                    ? activeDesign.imageUrl 
-                    : `${getBaseApiUrl()}${activeDesign.imageUrl}`)
+              // Construct full image URL for front - use mobile image on small screens if available
+              const isMobileScreen = window.innerWidth <= 768;
+              const baseImageUrl = isMobileScreen && activeDesign.mobileImageUrl 
+                ? activeDesign.mobileImageUrl 
+                : activeDesign.imageUrl;
+              
+              const imageUrl = baseImageUrl 
+                ? (baseImageUrl.startsWith('http://') || baseImageUrl.startsWith('https://')
+                    ? baseImageUrl 
+                    : `${getBaseApiUrl()}${baseImageUrl}`)
                 : null;
               
               // Construct full image URL for back
@@ -262,11 +267,16 @@ export default function Collections() {
             const isUnlocked = collectible.isUnlocked;
             const isActive = collectible._id === activeDesignId;
             
-            // Construct full image URL
-            const imageUrl = collectible.imageUrl 
-              ? (collectible.imageUrl.startsWith('http://') || collectible.imageUrl.startsWith('https://')
-                  ? collectible.imageUrl 
-                  : `${getBaseApiUrl()}${collectible.imageUrl}`)
+            // Construct full image URL - use mobile image on small screens if available
+            const isMobileScreen = window.innerWidth <= 768;
+            const baseImageUrl = isMobileScreen && collectible.mobileImageUrl 
+              ? collectible.mobileImageUrl 
+              : collectible.imageUrl;
+            
+            const imageUrl = baseImageUrl 
+              ? (baseImageUrl.startsWith('http://') || baseImageUrl.startsWith('https://')
+                  ? baseImageUrl 
+                  : `${getBaseApiUrl()}${baseImageUrl}`)
               : null;
             
             const cardStyle =
