@@ -27,9 +27,25 @@ export function getBaseApiUrl() {
     return 'http://localhost:8000';
   }
   
-  // For production (non-localhost), don't add port
+  // For production (non-localhost), try to detect backend service
+  // On Render, if VITE_API_URL is not set, try to construct backend URL
+  if (hostname.includes('render.com') || hostname.includes('onrender.com')) {
+    // Try to detect backend service name from hostname
+    // If frontend is espro-admin-portal.onrender.com, backend might be espro-backend.onrender.com
+    // This is a fallback - VITE_API_URL should be set in production
+    const serviceName = hostname.split('.')[0];
+    if (serviceName.includes('admin') || serviceName.includes('customer')) {
+      // Replace admin-portal or customer-portal with backend
+      const backendService = serviceName.replace(/-portal$/, '').replace(/-admin$/, '').replace(/-customer$/, '') + '-backend';
+      return `${protocol}//${backendService}.onrender.com`;
+    }
+    // Fallback: assume backend service name is 'espro-backend'
+    return `${protocol}//espro-backend.onrender.com`;
+  }
+  
+  // For other production environments, assume backend is on same domain
   // Backend should be proxied or accessible on same domain
-  // If backend is on different service (like Render), VITE_API_URL should be set
+  // If backend is on different service, VITE_API_URL should be set
   return `${protocol}//${hostname}`;
 }
 
