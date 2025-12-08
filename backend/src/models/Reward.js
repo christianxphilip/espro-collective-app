@@ -73,6 +73,11 @@ const rewardSchema = new mongoose.Schema({
     default: null, // Odoo program_id for voucher rewards
     sparse: true,
   },
+  maxClaimsPerUser: {
+    type: Number,
+    default: -1, // -1 means unlimited, otherwise limit per user (e.g., 1 = one claim per user)
+    min: -1,
+  },
   isActive: {
     type: Boolean,
     default: true,

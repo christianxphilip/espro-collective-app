@@ -22,6 +22,7 @@ export default function Rewards() {
     rewardType: 'voucher', // New: 'voucher', 'specificCardDesign', 'randomCardDesign'
     cardDesignIds: [], // New: array of card design IDs
     odooRewardId: '', // Odoo program_id for voucher rewards
+    maxClaimsPerUser: '', // Limit claims per user (-1 for unlimited, or number like 1)
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [previewVoucherImage, setPreviewVoucherImage] = useState(null);
@@ -122,6 +123,7 @@ export default function Rewards() {
       rewardType: 'voucher',
       cardDesignIds: [],
       odooRewardId: '',
+      maxClaimsPerUser: '',
     });
     setPreviewImage(null);
     setPreviewVoucherImage(null);
@@ -154,6 +156,7 @@ export default function Rewards() {
       rewardType: reward.rewardType || 'voucher',
       cardDesignIds: reward.cardDesignIds || [],
       odooRewardId: reward.odooRewardId || '',
+      maxClaimsPerUser: reward.maxClaimsPerUser !== undefined && reward.maxClaimsPerUser !== -1 ? reward.maxClaimsPerUser : '',
     });
     setPreviewImage(imageUrl);
     setPreviewVoucherImage(voucherImageUrl);
@@ -172,6 +175,7 @@ export default function Rewards() {
       rewardType: formData.rewardType,
       cardDesignIds: formData.rewardType === 'voucher' ? [] : (Array.isArray(formData.cardDesignIds) ? formData.cardDesignIds : [formData.cardDesignIds]),
       odooRewardId: formData.odooRewardId ? parseInt(formData.odooRewardId) : null,
+      maxClaimsPerUser: formData.maxClaimsPerUser !== '' && formData.maxClaimsPerUser !== null ? parseInt(formData.maxClaimsPerUser) : -1,
     };
 
     // Validate card design rewards
@@ -391,6 +395,20 @@ export default function Rewards() {
                     onChange={(e) => setFormData({ ...formData, esproCoinsRequired: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Claims Per User</label>
+                  <input
+                    type="number"
+                    min="-1"
+                    placeholder="Leave empty for unlimited"
+                    value={formData.maxClaimsPerUser}
+                    onChange={(e) => setFormData({ ...formData, maxClaimsPerUser: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Limit how many times a user can claim this reward. Leave empty for unlimited.
+                  </p>
                 </div>
                 {/* Card Design Selection (for card design rewards) */}
                 {(formData.rewardType === 'specificCardDesign' || formData.rewardType === 'randomCardDesign') && (
