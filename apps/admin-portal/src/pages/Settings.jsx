@@ -14,6 +14,9 @@ export default function Settings() {
     teal: '#3a878c',
   });
   const [odooSyncEnabled, setOdooSyncEnabled] = useState(true);
+  const [odooCustomerSyncEnabled, setOdooCustomerSyncEnabled] = useState(true);
+  const [odooVoucherSyncEnabled, setOdooVoucherSyncEnabled] = useState(true);
+  const [odooBalanceUpdateEnabled, setOdooBalanceUpdateEnabled] = useState(true);
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [currentLogoUrl, setCurrentLogoUrl] = useState(null);
@@ -32,6 +35,15 @@ export default function Settings() {
       }
       if (settingsResponse.odooSyncEnabled !== undefined) {
         setOdooSyncEnabled(settingsResponse.odooSyncEnabled);
+      }
+      if (settingsResponse.odooCustomerSyncEnabled !== undefined) {
+        setOdooCustomerSyncEnabled(settingsResponse.odooCustomerSyncEnabled);
+      }
+      if (settingsResponse.odooVoucherSyncEnabled !== undefined) {
+        setOdooVoucherSyncEnabled(settingsResponse.odooVoucherSyncEnabled);
+      }
+      if (settingsResponse.odooBalanceUpdateEnabled !== undefined) {
+        setOdooBalanceUpdateEnabled(settingsResponse.odooBalanceUpdateEnabled);
       }
       if (settingsResponse.logoUrl) {
         const logoUrl = settingsResponse.logoUrl.startsWith('http')
@@ -52,6 +64,9 @@ export default function Settings() {
         const formData = new FormData();
         formData.append('logo', data.logoFile);
         formData.append('odooSyncEnabled', data.odooSyncEnabled);
+        formData.append('odooCustomerSyncEnabled', data.odooCustomerSyncEnabled);
+        formData.append('odooVoucherSyncEnabled', data.odooVoucherSyncEnabled);
+        formData.append('odooBalanceUpdateEnabled', data.odooBalanceUpdateEnabled);
         formData.append('brandColors', JSON.stringify(data.brandColors));
         if (data.logoUrl) {
           formData.append('logoUrl', data.logoUrl);
@@ -122,6 +137,9 @@ export default function Settings() {
     const updateData = {
       brandColors,
       odooSyncEnabled,
+      odooCustomerSyncEnabled,
+      odooVoucherSyncEnabled,
+      odooBalanceUpdateEnabled,
       logoUrl: currentLogoUrl, // Include current logoUrl to preserve it
     };
     
@@ -159,7 +177,9 @@ export default function Settings() {
         {/* Odoo Integration Settings */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Odoo Integration</h2>
-          <div className="flex items-center justify-between">
+          
+          {/* Registration Sync */}
+          <div className="flex items-center justify-between mb-4 pb-4 border-b">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Enable Odoo Sync on Registration
@@ -173,6 +193,69 @@ export default function Settings() {
                 type="checkbox"
                 checked={odooSyncEnabled}
                 onChange={(e) => setOdooSyncEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-espro-orange/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-espro-orange"></div>
+            </label>
+          </div>
+
+          {/* Customer/Points Sync */}
+          <div className="flex items-center justify-between mb-4 pb-4 border-b">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Enable Hourly Customer/Points Sync
+              </label>
+              <p className="text-xs text-gray-500">
+                When enabled, the system will automatically sync customer loyalty cards and points from Odoo every hour.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={odooCustomerSyncEnabled}
+                onChange={(e) => setOdooCustomerSyncEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-espro-orange/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-espro-orange"></div>
+            </label>
+          </div>
+
+          {/* Voucher Sync */}
+          <div className="flex items-center justify-between mb-4 pb-4 border-b">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Enable Hourly Voucher Claim Status Sync
+              </label>
+              <p className="text-xs text-gray-500">
+                When enabled, the system will automatically sync voucher claim status from Odoo every hour.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={odooVoucherSyncEnabled}
+                onChange={(e) => setOdooVoucherSyncEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-espro-orange/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-espro-orange"></div>
+            </label>
+          </div>
+
+          {/* Balance Update */}
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Enable Balance Update on Redemption
+              </label>
+              <p className="text-xs text-gray-500">
+                When enabled, customer balance will be updated in Odoo when they redeem rewards.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={odooBalanceUpdateEnabled}
+                onChange={(e) => setOdooBalanceUpdateEnabled(e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-espro-orange/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-espro-orange"></div>

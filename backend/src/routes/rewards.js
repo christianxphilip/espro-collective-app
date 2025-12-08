@@ -6,6 +6,7 @@ import Claim from '../models/Claim.js';
 import User from '../models/User.js';
 import Collectible from '../models/Collectible.js';
 import PointsTransaction from '../models/PointsTransaction.js';
+import Settings from '../models/Settings.js';
 import odooBalanceQueue from '../jobs/odooBalanceQueue.js';
 import multer from 'multer';
 import path from 'path';
@@ -333,9 +334,15 @@ router.post('/claim/:id', protect, async (req, res) => {
 
         // Queue Odoo balance update as background job (non-blocking)
         if (updatedUser.odooCardId) {
-          const description = `Redeem Reward: ${reward.title}, Card Design: ${awardedCardDesign}`;
-          odooBalanceQueue.addJob(updatedUser.odooCardId, newBalance, description);
-          console.log(`[Reward Claim] Queued Odoo balance update for user ${updatedUser._id}, card ${updatedUser.odooCardId}`);
+          // Check if balance update is enabled
+          const settings = await Settings.getSettings();
+          if (settings.odooBalanceUpdateEnabled) {
+            const description = `Redeem Reward: ${reward.title}, Card Design: ${awardedCardDesign}`;
+            odooBalanceQueue.addJob(updatedUser.odooCardId, newBalance, description);
+            console.log(`[Reward Claim] Queued Odoo balance update for user ${updatedUser._id}, card ${updatedUser.odooCardId}`);
+          } else {
+            console.log(`[Reward Claim] Odoo balance update is disabled, skipping queue for user ${updatedUser._id}`);
+          }
         }
       } else {
         // For store-claimable rewards, just unlock the card design
@@ -779,9 +786,15 @@ router.post('/claim/:id', protect, async (req, res) => {
 
       // Queue Odoo balance update as background job (non-blocking)
       if (updatedUser.odooCardId) {
-        const description = `Redeem Reward: ${reward.title}, Voucher: ${voucherCode}`;
-        odooBalanceQueue.addJob(updatedUser.odooCardId, newBalance, description);
-        console.log(`[Reward Claim] Queued Odoo balance update for user ${updatedUser._id}, card ${updatedUser.odooCardId}`);
+        // Check if balance update is enabled
+        const settings = await Settings.getSettings();
+        if (settings.odooBalanceUpdateEnabled) {
+          const description = `Redeem Reward: ${reward.title}, Voucher: ${voucherCode}`;
+          odooBalanceQueue.addJob(updatedUser.odooCardId, newBalance, description);
+          console.log(`[Reward Claim] Queued Odoo balance update for user ${updatedUser._id}, card ${updatedUser.odooCardId}`);
+        } else {
+          console.log(`[Reward Claim] Odoo balance update is disabled, skipping queue for user ${updatedUser._id}`);
+        }
       }
     } else {
       // For store-claimable rewards, get user without deducting coins

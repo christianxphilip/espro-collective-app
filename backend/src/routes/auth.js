@@ -1,11 +1,8 @@
 import express from 'express';
 import User from '../models/User.js';
 import AvailableLoyaltyId from '../models/AvailableLoyaltyId.js';
-<<<<<<< HEAD
 import ReferralCode from '../models/ReferralCode.js';
-=======
 import Settings from '../models/Settings.js';
->>>>>>> feature/odoo-registration-integration
 import { generateToken, protect } from '../middleware/auth.js';
 import { createOdooPartner, createOdooLoyaltyCard } from '../services/odooSync.js';
 
@@ -84,7 +81,6 @@ router.post('/register', async (req, res) => {
       }
     }
 
-<<<<<<< HEAD
     // Process referral code if provided
     let referralCodeDoc = null;
     if (referralCode) {
@@ -114,41 +110,6 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    // Create user with loyalty ID and points from CSV if available
-    const userData = {
-      name: availableLoyaltyId.partnerName || name, // Use partner name from CSV if available, otherwise use provided name
-      email,
-      password,
-      loyaltyId: availableLoyaltyId.loyaltyId,
-      esproCoins: availableLoyaltyId.points || 0,
-      lifetimeEsproCoins: availableLoyaltyId.points || 0, // Set initial lifetime coins to points from CSV
-    };
-    
-    // Add referral code to user if provided
-    if (referralCodeDoc) {
-      userData.referralCodes = [{
-        referralCode: referralCodeDoc._id,
-        usedAt: new Date(),
-      }];
-    }
-    
-    const user = await User.create(userData);
-
-    // Mark loyalty ID as assigned
-    availableLoyaltyId.isAssigned = true;
-    availableLoyaltyId.assignedTo = user._id;
-    availableLoyaltyId.assignedAt = new Date();
-    await availableLoyaltyId.save();
-    
-    // Update referral code usage if provided
-    if (referralCodeDoc) {
-      referralCodeDoc.currentUses += 1;
-      referralCodeDoc.usedBy.push({
-        user: user._id,
-        usedAt: new Date(),
-      });
-      await referralCodeDoc.save();
-=======
     // Step 1: Create partner in Odoo (only if enabled in settings)
     let odooPartnerId;
     let odooCardId;
@@ -183,8 +144,8 @@ router.post('/register', async (req, res) => {
       console.log('[Registration] Odoo sync is disabled in settings, skipping Odoo integration');
     }
 
-    // Create user with loyalty ID and points from Odoo or CSV if available
-    const user = await User.create({
+    // Prepare user data
+    const userData = {
       name: availableLoyaltyId?.partnerName || name, // Use partner name from CSV if available, otherwise use provided name
       email,
       password,
@@ -192,7 +153,25 @@ router.post('/register', async (req, res) => {
       odooCardId: odooCardId || undefined, // Store Odoo card ID if available
       esproCoins: availableLoyaltyId?.points || 0, // Use points from CSV if available, otherwise 0
       lifetimeEsproCoins: availableLoyaltyId?.points || 0, // Set initial lifetime coins to points from CSV if available
-    });
+    };
+    
+    // Add referral code to user if provided
+    if (referralCodeDoc) {
+      userData.referralCodes = [{
+        referralCode: referralCodeDoc._id,
+        usedAt: new Date(),
+      }];
+      
+      // Unlock and activate the assigned card design from referral code
+      if (referralCodeDoc.assignedCardDesign) {
+        userData.unlockedCollectibles = [referralCodeDoc.assignedCardDesign];
+        userData.activeCardDesign = referralCodeDoc.assignedCardDesign;
+        console.log(`[Registration] Unlocking card design ${referralCodeDoc.assignedCardDesign} from referral code ${referralCodeDoc.code}`);
+      }
+    }
+    
+    // Create user
+    const user = await User.create(userData);
 
     // Mark loyalty ID as assigned if one was found and used
     // This is required when Odoo sync is disabled, and optional when enabled
@@ -201,7 +180,16 @@ router.post('/register', async (req, res) => {
       availableLoyaltyId.assignedTo = user._id;
       availableLoyaltyId.assignedAt = new Date();
       await availableLoyaltyId.save();
->>>>>>> feature/odoo-registration-integration
+    }
+    
+    // Update referral code usage if provided
+    if (referralCodeDoc) {
+      referralCodeDoc.currentUses += 1;
+      referralCodeDoc.usedBy.push({
+        user: user._id,
+        usedAt: new Date(),
+      });
+      await referralCodeDoc.save();
     }
 
     // Generate token

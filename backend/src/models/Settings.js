@@ -4,7 +4,19 @@ const settingsSchema = new mongoose.Schema({
   // Odoo Integration Settings
   odooSyncEnabled: {
     type: Boolean,
-    default: true, // Default to enabled
+    default: true, // Default to enabled - for registration sync
+  },
+  odooCustomerSyncEnabled: {
+    type: Boolean,
+    default: true, // Default to enabled - for hourly customer/points sync
+  },
+  odooVoucherSyncEnabled: {
+    type: Boolean,
+    default: true, // Default to enabled - for hourly voucher claim status sync
+  },
+  odooBalanceUpdateEnabled: {
+    type: Boolean,
+    default: true, // Default to enabled - for balance updates during redemption
   },
   
   // Brand Settings

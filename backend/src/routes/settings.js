@@ -94,16 +94,22 @@ router.get('/', async (req, res) => {
 router.put('/', upload.single('logo'), async (req, res) => {
   try {
     // Handle both JSON and multipart/form-data
-    let odooSyncEnabled, brandColors, logoUrl;
+    let odooSyncEnabled, odooCustomerSyncEnabled, odooVoucherSyncEnabled, odooBalanceUpdateEnabled, brandColors, logoUrl;
     
     if (req.file) {
       // Multipart/form-data request (with logo file)
       odooSyncEnabled = req.body.odooSyncEnabled !== undefined ? req.body.odooSyncEnabled === 'true' : undefined;
+      odooCustomerSyncEnabled = req.body.odooCustomerSyncEnabled !== undefined ? req.body.odooCustomerSyncEnabled === 'true' : undefined;
+      odooVoucherSyncEnabled = req.body.odooVoucherSyncEnabled !== undefined ? req.body.odooVoucherSyncEnabled === 'true' : undefined;
+      odooBalanceUpdateEnabled = req.body.odooBalanceUpdateEnabled !== undefined ? req.body.odooBalanceUpdateEnabled === 'true' : undefined;
       brandColors = req.body.brandColors ? JSON.parse(req.body.brandColors) : undefined;
       logoUrl = undefined; // Will be set from uploaded file
     } else {
       // JSON request
       odooSyncEnabled = req.body.odooSyncEnabled;
+      odooCustomerSyncEnabled = req.body.odooCustomerSyncEnabled;
+      odooVoucherSyncEnabled = req.body.odooVoucherSyncEnabled;
+      odooBalanceUpdateEnabled = req.body.odooBalanceUpdateEnabled;
       brandColors = req.body.brandColors;
       logoUrl = req.body.logoUrl;
     }
@@ -143,6 +149,18 @@ router.put('/', upload.single('logo'), async (req, res) => {
     
     if (odooSyncEnabled !== undefined) {
       settings.odooSyncEnabled = odooSyncEnabled;
+    }
+    
+    if (odooCustomerSyncEnabled !== undefined) {
+      settings.odooCustomerSyncEnabled = odooCustomerSyncEnabled;
+    }
+    
+    if (odooVoucherSyncEnabled !== undefined) {
+      settings.odooVoucherSyncEnabled = odooVoucherSyncEnabled;
+    }
+    
+    if (odooBalanceUpdateEnabled !== undefined) {
+      settings.odooBalanceUpdateEnabled = odooBalanceUpdateEnabled;
     }
     
     if (brandColors) {

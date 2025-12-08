@@ -10,6 +10,7 @@ import connectDB from './config/db.js';
 import { syncLoyaltyCards } from './services/odooSync.js';
 import { updateOdooBalance } from './services/odooSync.js';
 import OdooBalanceJob from './models/OdooBalanceJob.js';
+import Settings from './models/Settings.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -20,11 +21,8 @@ import rewardRoutes from './routes/rewards.js';
 import promotionRoutes from './routes/promotions.js';
 import claimRoutes from './routes/claims.js';
 import aiRoutes from './routes/ai.js';
-<<<<<<< HEAD
 import referralRoutes from './routes/referrals.js';
-=======
 import settingsRoutes from './routes/settings.js';
->>>>>>> feature/odoo-registration-integration
 
 // ES6 module fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -73,12 +71,9 @@ app.use('/api/rewards', rewardRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/claims', claimRoutes);
 app.use('/api/ai', aiRoutes);
-<<<<<<< HEAD
 app.use('/api/admin/referrals', referralRoutes);
-=======
 app.use('/api/settings', settingsRoutes);
 app.use('/api/admin/settings', settingsRoutes);
->>>>>>> feature/odoo-registration-integration
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -168,6 +163,19 @@ function startWorker() {
       console.log(`[Worker] Processing Odoo balance job ${job._id} for card ${job.odooCardId}`);
 
       try {
+        // Check if balance update is enabled
+        const settings = await Settings.getSettings();
+        if (!settings.odooBalanceUpdateEnabled) {
+          console.log(`[Worker] Odoo balance update is disabled in settings, skipping job ${job._id}`);
+          // Mark as completed but skipped
+          await OdooBalanceJob.findByIdAndUpdate(job._id, {
+            status: 'completed',
+            completedAt: new Date(),
+            error: 'Odoo balance update is disabled in settings',
+          });
+          return;
+        }
+        
         await updateOdooBalance(job.odooCardId, job.newBalance, job.description);
         
         // Mark as completed
@@ -213,7 +221,7 @@ function startWorker() {
   // Setup cron job to sync loyalty cards every hour
   // Runs at the top of every hour (e.g., 1:00, 2:00, 3:00, etc.)
   cron.schedule('0 * * * *', async () => {
-    console.log('[Cron] Starting scheduled Odoo sync...');
+    console.log('[Cron] Starting scheduled Odoo customer sync...');
     try {
       // Check if DB is connected before syncing
       if (mongoose.connection.readyState !== 1) {
@@ -221,10 +229,17 @@ function startWorker() {
         return;
       }
       
+      // Check if customer sync is enabled
+      const settings = await Settings.getSettings();
+      if (!settings.odooCustomerSyncEnabled) {
+        console.log('[Cron] Odoo customer sync is disabled in settings, skipping');
+        return;
+      }
+      
       const result = await syncLoyaltyCards();
-      console.log('[Cron] Odoo sync completed:', result);
+      console.log('[Cron] Odoo customer sync completed:', result);
     } catch (error) {
-      console.error('[Cron] Odoo sync failed:', error.message);
+      console.error('[Cron] Odoo customer sync failed:', error.message);
     }
   });
 
@@ -235,6 +250,13 @@ function startWorker() {
       // Check if DB is connected before syncing
       if (mongoose.connection.readyState !== 1) {
         console.warn('[Cron] MongoDB not connected, skipping voucher sync');
+        return;
+      }
+      
+      // Check if voucher sync is enabled
+      const settings = await Settings.getSettings();
+      if (!settings.odooVoucherSyncEnabled) {
+        console.log('[Cron] Odoo voucher sync is disabled in settings, skipping');
         return;
       }
       

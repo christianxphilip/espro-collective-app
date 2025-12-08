@@ -297,14 +297,23 @@ router.post('/points-upload', upload.single('csv'), async (req, res) => {
 // @access  Private/Admin
 router.post('/sync-odoo-points', async (req, res) => {
   try {
-    console.log('[Admin API] Manual Odoo sync requested');
+    // Check if customer sync is enabled
+    const settings = await Settings.getSettings();
+    if (!settings.odooCustomerSyncEnabled) {
+      return res.status(400).json({
+        success: false,
+        message: 'Odoo customer sync is disabled in settings',
+      });
+    }
+    
+    console.log('[Admin API] Manual Odoo customer sync requested');
     const result = await syncLoyaltyCards();
     res.json({
       success: true,
       ...result,
     });
   } catch (error) {
-    console.error('[Admin API] Odoo sync error:', error.message);
+    console.error('[Admin API] Odoo customer sync error:', error.message);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -317,6 +326,15 @@ router.post('/sync-odoo-points', async (req, res) => {
 // @access  Private/Admin
 router.post('/sync-voucher-status', async (req, res) => {
   try {
+    // Check if voucher sync is enabled
+    const settings = await Settings.getSettings();
+    if (!settings.odooVoucherSyncEnabled) {
+      return res.status(400).json({
+        success: false,
+        message: 'Odoo voucher sync is disabled in settings',
+      });
+    }
+    
     console.log('[Admin API] Manual voucher claim status sync requested');
     const { syncVoucherClaimStatus } = await import('../services/odooVoucherSync.js');
     const result = await syncVoucherClaimStatus();
