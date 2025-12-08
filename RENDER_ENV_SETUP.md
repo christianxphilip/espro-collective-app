@@ -13,11 +13,13 @@ Add these environment variables manually in the Render dashboard for the **espro
 ### Required Variables:
 
 ```
-AWS_ACCESS_KEY_ID=AKIAVS4IBMXRW7H6RJCH
-AWS_SECRET_ACCESS_KEY=33oUXmTvciom1ugaOGeGxPrsbliN3q8P5W2lDoq9
+AWS_ACCESS_KEY_ID=<your-access-key-id>
+AWS_SECRET_ACCESS_KEY=<your-secret-access-key>
 AWS_S3_BUCKET=espro-collective
 AWS_REGION=us-east-1
 ```
+
+**Note**: Replace `<your-access-key-id>` and `<your-secret-access-key>` with your actual AWS credentials.
 
 **Note**: Replace `us-east-1` with your actual S3 bucket region if different.
 
