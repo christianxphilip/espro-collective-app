@@ -94,7 +94,7 @@ async function processUploadedImage(file, uploadType = 'collectibles', prefix = 
         Key: resizedKey,
         Body: resizedBuffer,
         ContentType: file.mimetype || 'image/png',
-        ACL: 'public-read',
+        // ACL removed - bucket policy handles public access
       });
       
       await s3Client.send(putCommand);
