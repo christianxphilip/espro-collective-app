@@ -23,6 +23,16 @@ services:
         value: espressionist.pos@gmail.com
       - key: ODOO_PASSWORD
         value: Coffee@0118
+      - key: EMAIL_USER
+        value: espressionistmarketing@gmail.com
+      - key: EMAIL_PASS
+        value: uipn ddsq ubwz yywd
+      - key: CUSTOMER_PORTAL_URL
+        value: https://espro-customer-portal.onrender.com
+      - key: FRONTEND_URL
+        value: https://espro-customer-portal.onrender.com
+      - key: ADMIN_URL
+        value: https://espro-admin-portal.onrender.com
       # AWS S3 credentials - Add these manually in Render dashboard for security
       # - key: AWS_ACCESS_KEY_ID
       #   value: your-access-key-id

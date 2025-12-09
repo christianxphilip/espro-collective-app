@@ -6,7 +6,6 @@ import ReferralCode from '../models/ReferralCode.js';
 import Settings from '../models/Settings.js';
 import PasswordResetToken from '../models/PasswordResetToken.js';
 import { generateToken, protect } from '../middleware/auth.js';
-import { authLimiter, passwordResetLimiter } from '../middleware/rateLimit.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { createOdooPartner, createOdooLoyaltyCard, updateOdooPartnerBarcode } from '../services/odooSync.js';
 
@@ -31,7 +30,7 @@ const validate = (validations) => {
 // @route   POST /api/auth/register
 // @desc    Register a new customer
 // @access  Public
-router.post('/register', authLimiter, validate([
+router.post('/register', validate([
   body('name')
     .trim()
     .notEmpty().withMessage('Name is required')
@@ -272,7 +271,7 @@ router.post('/register', authLimiter, validate([
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
-router.post('/login', authLimiter, validate([
+router.post('/login', validate([
   body('email')
     .trim()
     .notEmpty().withMessage('Email is required')
@@ -372,7 +371,7 @@ router.get('/me', protect, async (req, res) => {
 // @route   POST /api/auth/forgot-password
 // @desc    Request password reset
 // @access  Public
-router.post('/forgot-password', passwordResetLimiter, validate([
+router.post('/forgot-password', validate([
   body('email')
     .trim()
     .notEmpty().withMessage('Email is required')
@@ -414,15 +413,19 @@ router.post('/forgot-password', passwordResetLimiter, validate([
       ipAddress: req.ip,
     });
 
-    // Send reset email
+    // Send reset email - await it to ensure it's sent before responding
+    // This ensures email is actually sent, not just queued
     try {
       await sendPasswordResetEmail(email, token, user.name);
+      console.log('[Auth] Password reset email sent successfully');
     } catch (emailError) {
       console.error('[Auth] Error sending password reset email:', emailError.message);
-      // Don't fail the request, but log the error
-      // The token is still created, user can request again if email fails
+      console.error('[Auth] Email error details:', emailError);
+      // Still return success to prevent email enumeration
+      // But log the error for debugging
     }
 
+    // Return response immediately without waiting for email
     res.json({
       success: true,
       message: 'If an account with that email exists, a password reset link has been sent.',

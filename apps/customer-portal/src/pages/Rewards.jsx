@@ -547,8 +547,10 @@ export default function Rewards() {
       <ConfirmModal
         isOpen={showConfirmModal}
         onClose={() => {
-          setShowConfirmModal(false);
-          setSelectedReward(null);
+          if (!claimMutation.isLoading && !claimingRewardId) {
+            setShowConfirmModal(false);
+            setSelectedReward(null);
+          }
         }}
         onConfirm={handleConfirmClaim}
         title="Claim Reward"
@@ -559,7 +561,7 @@ export default function Rewards() {
         }
         confirmText="Claim"
         cancelText="Cancel"
-        isLoading={claimMutation.isLoading}
+        isLoading={claimMutation.isLoading || claimingRewardId === selectedReward?._id}
       />
 
       {/* Toast Notification */}

@@ -12,7 +12,6 @@ import { syncLoyaltyCards } from './services/odooSync.js';
 import { updateOdooBalance } from './services/odooSync.js';
 import OdooBalanceJob from './models/OdooBalanceJob.js';
 import Settings from './models/Settings.js';
-import { generalLimiter } from './middleware/rateLimit.js';
 import { logActivity } from './services/activityLog.js';
 
 // Import routes
@@ -127,9 +126,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-
-// Rate limiting - apply to all API routes
-app.use('/api/', generalLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

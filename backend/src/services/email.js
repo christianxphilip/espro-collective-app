@@ -3,13 +3,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create transporter for Gmail SMTP
+// Create transporter for Gmail SMTP with timeout settings
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER || 'espressionistmarketing@gmail.com',
     pass: process.env.EMAIL_PASS || '', // App password
   },
+  // Add timeout settings to prevent hanging
+  connectionTimeout: 10000, // 10 seconds connection timeout
+  socketTimeout: 10000, // 10 seconds socket timeout
+  greetingTimeout: 10000, // 10 seconds greeting timeout
 });
 
 /**
@@ -21,10 +25,19 @@ const transporter = nodemailer.createTransport({
  */
 export async function sendPasswordResetEmail(email, resetToken, userName) {
   try {
+    // Check if email credentials are configured
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error('[Email] EMAIL_USER or EMAIL_PASS not configured');
+      throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASS environment variables.');
+    }
+
     // Use CUSTOMER_PORTAL_URL if set, otherwise FRONTEND_URL, otherwise default
     // Customer portal is where password reset should happen (not admin portal)
     const frontendUrl = process.env.CUSTOMER_PORTAL_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+    
+    console.log('[Email] Sending password reset email to:', email);
+    console.log('[Email] Reset URL:', resetUrl);
 
     const mailOptions = {
       from: `"ESPRO Collective" <${process.env.EMAIL_USER || 'espressionistmarketing@gmail.com'}>`,
@@ -83,11 +96,18 @@ export async function sendPasswordResetEmail(email, resetToken, userName) {
       `,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('[Email] Password reset email sent:', info.messageId);
+    // Add timeout wrapper to prevent hanging
+    const emailPromise = transporter.sendMail(mailOptions);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000);
+    });
+
+    const info = await Promise.race([emailPromise, timeoutPromise]);
+    console.log('[Email] Password reset email sent successfully:', info.messageId);
     return info;
   } catch (error) {
     console.error('[Email] Error sending password reset email:', error.message);
+    console.error('[Email] Error stack:', error.stack);
     throw error;
   }
 }
