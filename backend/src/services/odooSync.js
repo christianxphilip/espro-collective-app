@@ -1017,12 +1017,37 @@ async function fetchLoyaltyCardHistoryForTotal(odooCardId) {
 
 /**
  * Sync loyalty cards from Odoo to our database
+ * Optimized: Iterate through our customers and cross-check with Odoo data
  */
 export async function syncLoyaltyCards() {
   try {
     console.log('[Odoo Sync] Starting loyalty cards sync...');
     
-    // Fetch loyalty cards from Odoo
+    // Step 1: Get all customers from our database (non-admin users with loyaltyId or odooCardId)
+    const customers = await User.find({
+      isAdmin: false,
+      $or: [
+        { loyaltyId: { $exists: true, $ne: null } },
+        { odooCardId: { $exists: true, $ne: null } },
+        { barcode: { $exists: true, $ne: null } }
+      ]
+    }).select('_id loyaltyId odooCardId barcode esproCoins lifetimeEsproCoins');
+    
+    console.log(`[Odoo Sync] Found ${customers.length} customers in database to sync`);
+    
+    if (customers.length === 0) {
+      console.log('[Odoo Sync] No customers to sync');
+      return {
+        success: true,
+        processed: 0,
+        updated: 0,
+        notFound: 0,
+        errors: 0,
+        updates: [],
+      };
+    }
+    
+    // Step 2: Fetch loyalty cards from Odoo
     const odooData = await fetchLoyaltyCards();
     
     if (!odooData.result || !odooData.result.records) {
@@ -1032,75 +1057,124 @@ export async function syncLoyaltyCards() {
     const loyaltyCards = odooData.result.records;
     console.log(`[Odoo Sync] Fetched ${loyaltyCards.length} loyalty cards from Odoo`);
     
+    // Step 3: Create lookup maps from Odoo data for fast access
+    // Map by loyaltyId (code)
+    const odooByLoyaltyId = new Map();
+    // Map by odooCardId
+    const odooByCardId = new Map();
+    
+    for (const card of loyaltyCards) {
+      const loyaltyId = card.code || card.loyalty_code || card.loyalty_id;
+      const points = parseFloat(card.points || card.points_balance || 0);
+      const odooCardId = card.id || card.resId || null;
+      
+      if (!loyaltyId) {
+        continue; // Skip cards without loyalty ID
+      }
+      
+      if (isNaN(points) || points < 0) {
+        continue; // Skip invalid points
+      }
+      
+      // Store in both maps for flexible lookup
+      if (loyaltyId) {
+        odooByLoyaltyId.set(loyaltyId, {
+          loyaltyId,
+          points,
+          odooCardId,
+          card
+        });
+      }
+      
+      if (odooCardId) {
+        odooByCardId.set(odooCardId, {
+          loyaltyId,
+          points,
+          odooCardId,
+          card
+        });
+      }
+    }
+    
+    console.log(`[Odoo Sync] Created lookup maps: ${odooByLoyaltyId.size} by loyaltyId, ${odooByCardId.size} by odooCardId`);
+    
     let updated = 0;
     let notFound = 0;
     let errors = 0;
     const updates = [];
     
-    // Process each loyalty card
-    for (const card of loyaltyCards) {
+    // Step 4: Process each customer and cross-check with Odoo data
+    for (const user of customers) {
       try {
-        const loyaltyId = card.code || card.loyalty_code || card.loyalty_id;
-        const points = parseFloat(card.points || card.points_balance || 0);
-        const odooCardId = card.id || card.resId || null; // Store Odoo card ID
+        // Try to find matching Odoo card by loyaltyId, odooCardId, or barcode
+        let odooCard = null;
         
-        if (!loyaltyId) {
-          console.warn('[Odoo Sync] Skipping card without loyalty ID:', card);
-          continue;
+        if (user.loyaltyId && odooByLoyaltyId.has(user.loyaltyId)) {
+          odooCard = odooByLoyaltyId.get(user.loyaltyId);
+        } else if (user.odooCardId && odooByCardId.has(user.odooCardId)) {
+          odooCard = odooByCardId.get(user.odooCardId);
+        } else if (user.barcode && odooByLoyaltyId.has(user.barcode)) {
+          odooCard = odooByLoyaltyId.get(user.barcode);
         }
         
-        if (isNaN(points) || points < 0) {
-          console.warn(`[Odoo Sync] Invalid points value for ${loyaltyId}: ${card.points}`);
-          continue;
-        }
-        
-        // Find user by loyalty ID
-        const user = await User.findOne({ loyaltyId });
-        
-        if (!user) {
+        if (!odooCard) {
           notFound++;
-          console.log(`[Odoo Sync] User not found for loyalty ID: ${loyaltyId}`);
+          console.log(`[Odoo Sync] No matching Odoo card found for user ${user._id} (loyaltyId: ${user.loyaltyId}, odooCardId: ${user.odooCardId}, barcode: ${user.barcode})`);
+          continue;
+        }
+        
+        const { loyaltyId: odooLoyaltyId, points, odooCardId } = odooCard;
+        
+        // Get full user document for updating
+        const fullUser = await User.findById(user._id);
+        if (!fullUser) {
+          notFound++;
           continue;
         }
         
         // Update user's espro coins
-        const previousBalance = user.esproCoins;
-        const previousLifetime = user.lifetimeEsproCoins;
+        const previousBalance = fullUser.esproCoins;
+        const previousLifetime = fullUser.lifetimeEsproCoins;
         const balanceDifference = points - previousBalance;
-        user.esproCoins = points;
+        fullUser.esproCoins = points;
+        
+        // Update loyaltyId if it's different (in case barcode was used for lookup)
+        if (odooLoyaltyId && fullUser.loyaltyId !== odooLoyaltyId) {
+          fullUser.loyaltyId = odooLoyaltyId;
+        }
         
         // Store Odoo card ID
         let historyData = null;
         if (odooCardId) {
-          user.odooCardId = odooCardId;
+          fullUser.odooCardId = odooCardId;
           
           // Fetch history to calculate total earned points (sum of all issued points)
           try {
             historyData = await fetchLoyaltyCardHistoryForTotal(odooCardId);
             if (historyData.totalEarned > 0) {
-              user.lifetimeEsproCoins = historyData.totalEarned;
-              console.log(`[Odoo Sync] Set total earned for ${loyaltyId}: ${historyData.totalEarned} (sum of all issued points)`);
+              fullUser.lifetimeEsproCoins = historyData.totalEarned;
+              console.log(`[Odoo Sync] Set total earned for ${odooLoyaltyId}: ${historyData.totalEarned} (sum of all issued points)`);
             } else {
               // If history fetch failed or returned 0, use current balance as fallback if higher
-              if (points > user.lifetimeEsproCoins) {
-                user.lifetimeEsproCoins = points;
+              if (points > fullUser.lifetimeEsproCoins) {
+                fullUser.lifetimeEsproCoins = points;
               }
             }
           } catch (error) {
-            console.warn(`[Odoo Sync] Failed to fetch history for ${loyaltyId}, using current balance:`, error.message);
+            console.warn(`[Odoo Sync] Failed to fetch history for ${odooLoyaltyId}, using current balance:`, error.message);
             // Fallback: use current balance if higher
-            if (points > user.lifetimeEsproCoins) {
-              user.lifetimeEsproCoins = points;
+            if (points > fullUser.lifetimeEsproCoins) {
+              fullUser.lifetimeEsproCoins = points;
             }
           }
         } else {
           // No Odoo card ID, use current balance as fallback if higher
-          if (points > user.lifetimeEsproCoins) {
-            user.lifetimeEsproCoins = points;
+          if (points > fullUser.lifetimeEsproCoins) {
+            fullUser.lifetimeEsproCoins = points;
           }
         }
         
-        await user.save();
+        await fullUser.save();
         
         // Create transaction records from Odoo history if available
         // Only create records for "issued" (earned) points, not "used" points
@@ -1112,7 +1186,7 @@ export async function syncLoyaltyCards() {
               let runningBalance = 0;
               let transactionsCreated = 0;
               
-              console.log(`[Odoo Sync] Processing ${historyData.history.length} history entries for ${loyaltyId} (only issued points)`);
+              console.log(`[Odoo Sync] Processing ${historyData.history.length} history entries for ${odooLoyaltyId} (only issued points)`);
               
               for (const entry of historyData.history) {
                 const issued = entry.issued ? parseFloat(entry.issued) : 0;
@@ -1132,7 +1206,7 @@ export async function syncLoyaltyCards() {
                   // Use upsert to avoid duplicates - match by user, type, amount, and timestamp
                   await PointsTransaction.findOneAndUpdate(
                     {
-                      user: user._id,
+                      user: fullUser._id,
                       type: 'earned',
                       amount: issued,
                       createdAt: {
@@ -1142,7 +1216,7 @@ export async function syncLoyaltyCards() {
                       referenceType: 'OdooSync',
                     },
                     {
-                      user: user._id,
+                      user: fullUser._id,
                       type: 'earned',
                       amount: issued,
                       description: entry.description || 'Points earned from purchase',
@@ -1158,19 +1232,19 @@ export async function syncLoyaltyCards() {
                     }
                   );
                   transactionsCreated++;
-                  console.log(`[Odoo Sync] Upserted earned transaction: ${issued} points for ${loyaltyId} at ${entryDate.toISOString()}, balance after: ${runningBalance}`);
+                  console.log(`[Odoo Sync] Upserted earned transaction: ${issued} points for ${odooLoyaltyId} at ${entryDate.toISOString()}, balance after: ${runningBalance}`);
                 }
                 // Note: We skip creating records for "used" points from Odoo
                 // "Used" points are tracked when customers redeem rewards in the app
               }
               
-              console.log(`[Odoo Sync] Upserted ${transactionsCreated} earned transaction records from ${historyData.history.length} history entries for ${loyaltyId}`);
+              console.log(`[Odoo Sync] Upserted ${transactionsCreated} earned transaction records from ${historyData.history.length} history entries for ${odooLoyaltyId}`);
           } catch (error) {
-            console.warn(`[Odoo Sync] Failed to create transaction records for ${loyaltyId}:`, error.message);
+            console.warn(`[Odoo Sync] Failed to create transaction records for ${odooLoyaltyId}:`, error.message);
             // Fallback: create transaction if balance increased
             if (balanceDifference > 0) {
               await PointsTransaction.create({
-                user: user._id,
+                user: fullUser._id,
                 type: 'earned',
                 amount: balanceDifference,
                 description: 'Points earned from purchase',
@@ -1183,7 +1257,7 @@ export async function syncLoyaltyCards() {
         } else if (balanceDifference > 0) {
           // No Odoo card ID, but balance increased - create transaction
           await PointsTransaction.create({
-            user: user._id,
+            user: fullUser._id,
             type: 'earned',
             amount: balanceDifference,
             description: 'Points earned from purchase',
@@ -1195,14 +1269,14 @@ export async function syncLoyaltyCards() {
         
         updated++;
         updates.push({
-          loyaltyId,
+          loyaltyId: odooLoyaltyId,
           previousBalance,
           newBalance: points,
           previousLifetime,
-          newLifetime: user.lifetimeEsproCoins,
+          newLifetime: fullUser.lifetimeEsproCoins,
         });
         
-        console.log(`[Odoo Sync] Updated ${loyaltyId}: Current ${previousBalance} → ${points} coins, Total Earned ${previousLifetime} → ${user.lifetimeEsproCoins} coins`);
+        console.log(`[Odoo Sync] Updated ${odooLoyaltyId}: Current ${previousBalance} → ${points} coins, Total Earned ${previousLifetime} → ${fullUser.lifetimeEsproCoins} coins`);
       } catch (error) {
         errors++;
         console.error(`[Odoo Sync] Error processing card:`, error.message);
@@ -1213,7 +1287,7 @@ export async function syncLoyaltyCards() {
     
     return {
       success: true,
-      processed: loyaltyCards.length,
+      processed: customers.length,
       updated,
       notFound,
       errors,

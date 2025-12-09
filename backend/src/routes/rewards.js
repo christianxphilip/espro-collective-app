@@ -1129,12 +1129,28 @@ router.post('/', combinedUpload.fields([
 
     if (req.files?.image) {
       const file = req.files.image[0];
-      rewardData.imageUrl = file.location || getFileUrl(file.filename, 'rewards');
+      // For S3: file.location is the full URL, file.key is the S3 key
+      // For local: file.path is the full path, file.filename is just the filename
+      if (file.location) {
+        // S3 upload - use location directly
+        rewardData.imageUrl = file.location;
+      } else {
+        // Local upload - use getFileUrl with filename
+        rewardData.imageUrl = getFileUrl(file.filename, 'rewards');
+      }
     }
 
     if (req.files?.voucherImage) {
       const voucherFile = req.files.voucherImage[0];
-      rewardData.voucherImageUrl = voucherFile.location || getFileUrl(voucherFile.filename, 'rewards');
+      // For S3: file.location is the full URL, file.key is the S3 key
+      // For local: file.path is the full path, file.filename is just the filename
+      if (voucherFile.location) {
+        // S3 upload - use location directly
+        rewardData.voucherImageUrl = voucherFile.location;
+      } else {
+        // Local upload - use getFileUrl with filename
+        rewardData.voucherImageUrl = getFileUrl(voucherFile.filename, 'rewards');
+      }
     }
 
     // Parse voucher codes CSV if provided (not required if claimableAtStore is true)
@@ -1281,12 +1297,29 @@ router.put('/:id', combinedUpload.fields([
     }
 
     if (req.files?.image) {
-      reward.imageUrl = `/uploads/rewards/${req.files.image[0].filename}`;
+      const file = req.files.image[0];
+      // For S3: file.location is the full URL, file.key is the S3 key
+      // For local: file.path is the full path, file.filename is just the filename
+      if (file.location) {
+        // S3 upload - use location directly
+        reward.imageUrl = file.location;
+      } else {
+        // Local upload - construct path
+        reward.imageUrl = `/uploads/rewards/${file.filename}`;
+      }
     }
 
     if (req.files?.voucherImage) {
       const voucherFile = req.files.voucherImage[0];
-      reward.voucherImageUrl = voucherFile.location || getFileUrl(voucherFile.filename, 'rewards');
+      // For S3: file.location is the full URL, file.key is the S3 key
+      // For local: file.path is the full path, file.filename is just the filename
+      if (voucherFile.location) {
+        // S3 upload - use location directly
+        reward.voucherImageUrl = voucherFile.location;
+      } else {
+        // Local upload - use getFileUrl with filename
+        reward.voucherImageUrl = getFileUrl(voucherFile.filename, 'rewards');
+      }
     }
 
     // Parse and append new voucher codes from CSV if provided
