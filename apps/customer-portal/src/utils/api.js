@@ -12,6 +12,13 @@ export function getBaseApiUrl() {
   const protocol = window.location.protocol;
   const hostname = window.location.hostname;
   
+  // For Render deployment: if hostname contains 'render.com' or 'onrender.com', use the backend service URL
+  if (hostname.includes('render.com') || hostname.includes('onrender.com')) {
+    // Backend service name: espro-backend
+    // Render URLs format: service-name.onrender.com
+    return `${protocol}//espro-backend.onrender.com`;
+  }
+  
   // If accessing via IP or domain, use the same host with backend port
   // Backend runs on port 8000
   if (hostname !== 'localhost' && hostname !== '127.0.0.1') {

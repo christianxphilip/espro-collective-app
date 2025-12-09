@@ -6,6 +6,7 @@ import Reward from '../models/Reward.js';
 import Claim from '../models/Claim.js';
 import Promotion from '../models/Promotion.js';
 import Collectible from '../models/Collectible.js';
+import Settings from '../models/Settings.js';
 import { syncLoyaltyCards } from '../services/odooSync.js';
 import odooBalanceQueue from '../jobs/odooBalanceQueue.js';
 import csv from 'csv-parser';
