@@ -1220,7 +1220,8 @@ export async function syncLoyaltyCards() {
                 // Only create transaction record for issued (earned) points
                 if (issued > 0) {
                   // Use upsert to avoid duplicates - match by user, type, amount, and timestamp
-                  await PointsTransaction.findOneAndUpdate(
+                  // Use setOnInsert to set createdAt only during insert (not update)
+                  const result = await PointsTransaction.findOneAndUpdate(
                     {
                       user: fullUser._id,
                       type: 'earned',
@@ -1232,14 +1233,18 @@ export async function syncLoyaltyCards() {
                       referenceType: 'OdooSync',
                     },
                     {
-                      user: fullUser._id,
-                      type: 'earned',
-                      amount: issued,
-                      description: entry.description || 'Points earned from purchase',
-                      referenceId: null,
-                      referenceType: 'OdooSync',
-                      balanceAfter: runningBalance, // Balance after this transaction
-                      createdAt: entryDate,
+                      $set: {
+                        user: fullUser._id,
+                        type: 'earned',
+                        amount: issued,
+                        description: entry.description || 'Points earned from purchase',
+                        referenceId: null,
+                        referenceType: 'OdooSync',
+                        balanceAfter: runningBalance, // Balance after this transaction
+                      },
+                      $setOnInsert: {
+                        createdAt: entryDate, // Only set during insert
+                      },
                     },
                     {
                       upsert: true,
@@ -1247,6 +1252,14 @@ export async function syncLoyaltyCards() {
                       setDefaultsOnInsert: true,
                     }
                   );
+                  
+                  // If this was a new insert, manually update createdAt since Mongoose timestamps override it
+                  if (result.createdAt.getTime() !== entryDate.getTime()) {
+                    await PointsTransaction.findByIdAndUpdate(result._id, {
+                      createdAt: entryDate,
+                    }, { timestamps: false }); // Disable timestamps for this update
+                  }
+                  
                   transactionsCreated++;
                   console.log(`[Odoo Sync] Upserted earned transaction: ${issued} points for ${odooLoyaltyId} at ${entryDate.toISOString()}, balance after: ${runningBalance}`);
                 }
@@ -1256,31 +1269,42 @@ export async function syncLoyaltyCards() {
               
               console.log(`[Odoo Sync] Upserted ${transactionsCreated} earned transaction records from ${historyData.history.length} history entries for ${odooLoyaltyId}`);
           } catch (error) {
-            console.warn(`[Odoo Sync] Failed to create transaction records for ${odooLoyaltyId}:`, error.message);
+            console.error(`[Odoo Sync] Failed to create transaction records for ${odooLoyaltyId}:`, error.message);
+            console.error(`[Odoo Sync] Error stack:`, error.stack);
             // Fallback: create transaction if balance increased
             if (balanceDifference > 0) {
-              await PointsTransaction.create({
-                user: fullUser._id,
-                type: 'earned',
-                amount: balanceDifference,
-                description: 'Points earned from purchase',
-                referenceId: null,
-                referenceType: 'OdooSync',
-                balanceAfter: points,
-              });
+              try {
+                await PointsTransaction.create({
+                  user: fullUser._id,
+                  type: 'earned',
+                  amount: balanceDifference,
+                  description: 'Points earned from purchase',
+                  referenceId: null,
+                  referenceType: 'OdooSync',
+                  balanceAfter: points,
+                });
+                console.log(`[Odoo Sync] Created fallback transaction: ${balanceDifference} points for user ${fullUser._id}`);
+              } catch (fallbackError) {
+                console.error(`[Odoo Sync] Failed to create fallback transaction:`, fallbackError.message);
+              }
             }
           }
         } else if (balanceDifference > 0) {
-          // No Odoo card ID, but balance increased - create transaction
-          await PointsTransaction.create({
-            user: fullUser._id,
-            type: 'earned',
-            amount: balanceDifference,
-            description: 'Points earned from purchase',
-            referenceId: null,
-            referenceType: 'OdooSync',
-            balanceAfter: points,
-          });
+          // No Odoo card ID or history, but balance increased - create transaction
+          try {
+            await PointsTransaction.create({
+              user: fullUser._id,
+              type: 'earned',
+              amount: balanceDifference,
+              description: 'Points earned from purchase',
+              referenceId: null,
+              referenceType: 'OdooSync',
+              balanceAfter: points,
+            });
+            console.log(`[Odoo Sync] Created transaction for balance increase (no history): ${balanceDifference} points for user ${fullUser._id}`);
+          } catch (error) {
+            console.error(`[Odoo Sync] Failed to create transaction (no history):`, error.message);
+          }
         }
         
         updated++;

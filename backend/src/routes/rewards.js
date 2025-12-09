@@ -76,12 +76,12 @@ class CombinedStorage {
         rewardsS3Storage._handleFile(req, file, cb);
       } else {
         // Fallback to local storage if storage engine is not available
-        const rewardsDir = path.join(__dirname, '../../uploads/rewards');
-        if (!fs.existsSync(rewardsDir)) {
-          fs.mkdirSync(rewardsDir, { recursive: true });
-        }
+      const rewardsDir = path.join(__dirname, '../../uploads/rewards');
+      if (!fs.existsSync(rewardsDir)) {
+        fs.mkdirSync(rewardsDir, { recursive: true });
+      }
         
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const filename = 'reward-' + uniqueSuffix + path.extname(file.originalname);
         const filepath = path.join(rewardsDir, filename);
         
@@ -135,8 +135,8 @@ const combinedUpload = multer({
 // @desc    Claim a reward (idempotent - same request returns same claim)
 // @access  Private
 router.post('/claim/:id', protect, async (req, res) => {
-  const userId = req.user._id;
-  const rewardId = req.params.id;
+    const userId = req.user._id;
+    const rewardId = req.params.id;
   let lockAcquired = false;
 
   try {

@@ -143,7 +143,7 @@ export async function syncVoucherClaimStatus() {
       path: 'reward',
       select: '_id title odooRewardId rewardType',
       match: {
-        odooRewardId: { $ne: null, $exists: true },
+      odooRewardId: { $ne: null, $exists: true },
         rewardType: 'voucher',
       },
     });

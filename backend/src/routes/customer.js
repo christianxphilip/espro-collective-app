@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { protect } from '../middleware/auth.js';
 import User from '../models/User.js';
 import Reward from '../models/Reward.js';
@@ -402,16 +403,55 @@ router.get('/points-history', async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
 
-    const transactions = await PointsTransaction.find({ user: req.user._id })
+    const userId = req.user._id;
+    
+    // Ensure userId is a proper ObjectId
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId) 
+      ? (userId instanceof mongoose.Types.ObjectId ? userId : new mongoose.Types.ObjectId(userId))
+      : userId;
+    
+    // Debug logging
+    console.log('[Points History] Fetching transactions for user:', userObjectId.toString());
+    console.log('[Points History] User ID type:', typeof userObjectId);
+    console.log('[Points History] User ID constructor:', userObjectId.constructor.name);
+    
+    // Check if user has any transactions at all (for debugging)
+    // Try both ObjectId and string format to catch any mismatches
+    const totalInDB = await PointsTransaction.countDocuments({ user: userObjectId });
+    const totalAsString = await PointsTransaction.countDocuments({ user: userId.toString() });
+    const totalAllUsers = await PointsTransaction.countDocuments({});
+    
+    console.log('[Points History] Transaction counts:', {
+      forThisUserObjectId: totalInDB,
+      forThisUserString: totalAsString,
+      totalInDatabase: totalAllUsers,
+      userId: userObjectId.toString(),
+    });
+    
+    // Query transactions - populate referenceId only when it exists
+    const transactions = await PointsTransaction.find({ user: userObjectId })
       .populate({
         path: 'referenceId',
         select: 'title name',
+        options: { strictPopulate: false }, // Don't throw error if referenceId is null
       })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const total = await PointsTransaction.countDocuments({ user: req.user._id });
+    console.log('[Points History] Query result:', {
+      transactionsFound: transactions.length,
+      totalInDB,
+      userId: userObjectId.toString(),
+      page,
+      limit,
+      sampleTransaction: transactions.length > 0 ? {
+        id: transactions[0]._id,
+        user: transactions[0].user?.toString(),
+        type: transactions[0].type,
+        amount: transactions[0].amount,
+      } : null,
+    });
 
     res.json({
       success: true,
@@ -419,11 +459,13 @@ router.get('/points-history', async (req, res) => {
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit),
+        total: totalInDB,
+        pages: Math.ceil(totalInDB / limit),
       },
     });
   } catch (error) {
+    console.error('[Points History] Error fetching transactions:', error);
+    console.error('[Points History] Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: error.message,

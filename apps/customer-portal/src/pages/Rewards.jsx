@@ -548,8 +548,8 @@ export default function Rewards() {
         isOpen={showConfirmModal}
         onClose={() => {
           if (!claimMutation.isLoading && !claimingRewardId) {
-            setShowConfirmModal(false);
-            setSelectedReward(null);
+          setShowConfirmModal(false);
+          setSelectedReward(null);
           }
         }}
         onConfirm={handleConfirmClaim}

@@ -304,7 +304,7 @@ export default function Collections() {
             const textColor = collectible.textColor || '#FFFFFF';
 
             const isActivating = activatingCardId === collectible._id;
-            
+
             return (
               <div
                 key={collectible._id}
