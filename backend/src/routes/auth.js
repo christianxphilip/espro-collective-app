@@ -413,17 +413,23 @@ router.post('/forgot-password', validate([
       ipAddress: req.ip,
     });
 
-    // Send reset email - await it to ensure it's sent before responding
-    // This ensures email is actually sent, not just queued
-    try {
-      await sendPasswordResetEmail(email, token, user.name);
-      console.log('[Auth] Password reset email sent successfully');
-    } catch (emailError) {
-      console.error('[Auth] Error sending password reset email:', emailError.message);
-      console.error('[Auth] Email error details:', emailError);
-      // Still return success to prevent email enumeration
-      // But log the error for debugging
-    }
+    // Send reset email asynchronously (non-blocking) to prevent API hanging
+    // Render's network may have issues with Gmail SMTP, so we don't block the response
+    sendPasswordResetEmail(email, token, user.name)
+      .then((info) => {
+        console.log('[Auth] Password reset email sent successfully:', info.messageId);
+      })
+      .catch((emailError) => {
+        console.error('[Auth] Error sending password reset email:', emailError.message);
+        console.error('[Auth] Email error code:', emailError.code);
+        console.error('[Auth] Email error details:', emailError);
+        // Log critical error for monitoring
+        if (emailError.code === 'ETIMEDOUT' || emailError.message.includes('timeout')) {
+          console.error('[Auth] CRITICAL: Email service timeout - Gmail SMTP may be blocked from Render. Consider using SendGrid, Mailgun, or AWS SES.');
+        }
+        // Email sending failed, but don't fail the request
+        // The token is still created, user can request again if email fails
+      });
 
     // Return response immediately without waiting for email
     res.json({

@@ -543,30 +543,27 @@ router.put('/:id', upload.fields([
     // Handle back card image upload
     if (req.files && req.files.backCardImage && req.files.backCardImage[0]) {
       const file = req.files.backCardImage[0];
-      const originalPath = file.path;
-      const fileExt = path.extname(file.originalname).toLowerCase();
-      const isSvg = fileExt === '.svg';
-      
-      if (isSvg) {
-        // SVG files don't need resizing (they're vector graphics)
-        collectible.backCardImageUrl = `/uploads/collectibles/${file.filename}`;
-      } else {
-        // Resize raster images to card dimensions
-        const resizedPath = path.join(__dirname, '../../uploads/collectibles', `resized-back-${file.filename}`);
-        const resizeSuccess = await resizeImageToCardDimensions(originalPath, resizedPath);
-        
-        if (resizeSuccess) {
-          // Delete original and use resized version
-          fs.unlinkSync(originalPath);
-          collectible.backCardImageUrl = `/uploads/collectibles/resized-back-${file.filename}`;
-        } else {
-          // If resize fails, use original (but warn)
-          collectible.backCardImageUrl = `/uploads/collectibles/${file.filename}`;
-        }
+      // Delete old back card image if it exists
+      if (collectible.backCardImageUrl && !collectible.backCardImageUrl.startsWith('http')) {
+        await deleteFile(collectible.backCardImageUrl, 'collectibles');
       }
+      const processed = await processUploadedImage(file, 'collectibles', 'back-');
+      collectible.backCardImageUrl = processed.imageUrl;
+      console.log('[Collectibles] Back card image updated:', {
+        imageUrl: collectible.backCardImageUrl,
+        isS3: !!file.location,
+      });
     } else if (backCardImageUrl !== undefined) {
-      // Handle AI-generated or existing back card image URL
-      collectible.backCardImageUrl = backCardImageUrl || undefined;
+      // Handle AI-generated or existing back card image URL, or clearing it
+      if (backCardImageUrl && backCardImageUrl.trim() !== '') {
+        collectible.backCardImageUrl = backCardImageUrl;
+      } else if (backCardImageUrl === '' || backCardImageUrl === null) {
+        // Clear back card image if explicitly set to empty
+        if (collectible.backCardImageUrl && !collectible.backCardImageUrl.startsWith('http')) {
+          await deleteFile(collectible.backCardImageUrl, 'collectibles');
+        }
+        collectible.backCardImageUrl = null;
+      }
     }
 
     await collectible.save();

@@ -3,17 +3,33 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create transporter for Gmail SMTP with timeout settings
+// Create transporter for Gmail SMTP with improved timeout settings for Render
+// Note: Gmail SMTP may not work reliably from Render due to network restrictions
+// Consider using SendGrid, Mailgun, or AWS SES for production
 const transporter = nodemailer.createTransport({
   service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // true for 465, false for other ports
+  requireTLS: true, // Force TLS
   auth: {
     user: process.env.EMAIL_USER || 'espressionistmarketing@gmail.com',
     pass: process.env.EMAIL_PASS || '', // App password
   },
-  // Add timeout settings to prevent hanging
-  connectionTimeout: 10000, // 10 seconds connection timeout
-  socketTimeout: 10000, // 10 seconds socket timeout
-  greetingTimeout: 10000, // 10 seconds greeting timeout
+  // Extended timeout settings for Render's network
+  connectionTimeout: 30000, // 30 seconds connection timeout
+  socketTimeout: 30000, // 30 seconds socket timeout
+  greetingTimeout: 30000, // 30 seconds greeting timeout
+  // Additional options for better reliability
+  tls: {
+    rejectUnauthorized: true, // Verify SSL certificates
+    ciphers: 'SSLv3',
+  },
+  // Retry configuration
+  retry: {
+    attempts: 2,
+    delay: 1000,
+  },
 });
 
 /**
@@ -96,10 +112,10 @@ export async function sendPasswordResetEmail(email, resetToken, userName) {
       `,
     };
 
-    // Add timeout wrapper to prevent hanging
+    // Add timeout wrapper to prevent hanging (increased timeout for Render)
     const emailPromise = transporter.sendMail(mailOptions);
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000);
+      setTimeout(() => reject(new Error('Email sending timeout after 30 seconds')), 30000);
     });
 
     const info = await Promise.race([emailPromise, timeoutPromise]);
