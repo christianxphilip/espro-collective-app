@@ -313,6 +313,11 @@ export default function Rewards() {
           type: 'success',
         });
       }
+      
+      // Clear claiming state and close modal after success
+      setClaimingRewardId(null);
+      setShowConfirmModal(false);
+      setSelectedReward(null);
     },
     onError: (error) => {
       setShowConfirmModal(false);

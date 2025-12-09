@@ -126,20 +126,36 @@ async function fetchVoucherStatusFromOdoo(programId) {
 
 /**
  * Sync voucher claim status from Odoo
+ * Optimized: Iterate through our claims and cross-check with Odoo data
  * Checks if vouchers are claimed (points_display === "0 Coupon point(s)") and updates Claim records
  */
 export async function syncVoucherClaimStatus() {
   try {
     console.log('[Odoo Voucher Sync] Starting voucher claim status sync...');
     
-    // Find all rewards with odooRewardId (voucher rewards that need syncing)
-    const rewardsWithOdooId = await Reward.find({
-      odooRewardId: { $ne: null, $exists: true },
-      rewardType: 'voucher', // Only sync voucher rewards
+    // Step 1: Get all claims with voucher codes that belong to rewards with odooRewardId
+    const claims = await Claim.find({
+      voucherCode: { $ne: null }, // Only process claims with voucher codes
+    }).populate({
+      path: 'reward',
+      select: '_id title odooRewardId rewardType',
+      match: {
+        odooRewardId: { $ne: null, $exists: true },
+        rewardType: 'voucher',
+      },
     });
     
-    if (rewardsWithOdooId.length === 0) {
-      console.log('[Odoo Voucher Sync] No rewards with Odoo Reward ID found');
+    // Filter out claims where reward is null (populate didn't match) or reward doesn't have odooRewardId
+    const validClaims = claims.filter(claim => 
+      claim.reward && 
+      claim.reward.odooRewardId && 
+      claim.reward.rewardType === 'voucher'
+    );
+    
+    console.log(`[Odoo Voucher Sync] Found ${validClaims.length} claims to sync`);
+    
+    if (validClaims.length === 0) {
+      console.log('[Odoo Voucher Sync] No claims with voucher codes found for rewards with Odoo Reward ID');
       return {
         success: true,
         processed: 0,
@@ -148,19 +164,34 @@ export async function syncVoucherClaimStatus() {
       };
     }
     
-    console.log(`[Odoo Voucher Sync] Found ${rewardsWithOdooId.length} rewards with Odoo Reward ID`);
+    // Step 2: Group claims by reward (odooRewardId) to minimize Odoo API calls
+    const claimsByReward = new Map();
+    for (const claim of validClaims) {
+      const rewardId = claim.reward._id.toString();
+      const odooRewardId = claim.reward.odooRewardId;
+      
+      if (!claimsByReward.has(odooRewardId)) {
+        claimsByReward.set(odooRewardId, {
+          reward: claim.reward,
+          claims: [],
+        });
+      }
+      claimsByReward.get(odooRewardId).claims.push(claim);
+    }
+    
+    console.log(`[Odoo Voucher Sync] Grouped claims into ${claimsByReward.size} rewards`);
     
     let totalProcessed = 0;
     let totalUpdated = 0;
     let totalErrors = 0;
     
-    // Process each reward
-    for (const reward of rewardsWithOdooId) {
+    // Step 3: Process each reward group
+    for (const [odooRewardId, { reward, claims: rewardClaims }] of claimsByReward) {
       try {
-        console.log(`[Odoo Voucher Sync] Processing reward: ${reward.title} (Odoo Program ID: ${reward.odooRewardId})`);
+        console.log(`[Odoo Voucher Sync] Processing reward: ${reward.title} (Odoo Program ID: ${odooRewardId}, ${rewardClaims.length} claims)`);
         
-        // Fetch voucher status from Odoo
-        const odooData = await fetchVoucherStatusFromOdoo(reward.odooRewardId);
+        // Fetch voucher status from Odoo (once per reward)
+        const odooData = await fetchVoucherStatusFromOdoo(odooRewardId);
         
         if (!odooData.result || !odooData.result.records) {
           console.warn(`[Odoo Voucher Sync] Invalid response from Odoo for reward ${reward._id}`);
@@ -171,28 +202,24 @@ export async function syncVoucherClaimStatus() {
         const loyaltyCards = odooData.result.records;
         console.log(`[Odoo Voucher Sync] Fetched ${loyaltyCards.length} loyalty cards from Odoo for reward ${reward._id}`);
         
-        // Create a map of voucher codes to claim status
+        // Step 4: Create lookup map from Odoo data (by voucher code)
         const voucherStatusMap = new Map();
         
         for (const card of loyaltyCards) {
           const voucherCode = card.code;
+          if (!voucherCode) continue;
+          
           // Check if points_display is "0 Coupon point(s)" - means it's claimed
           const isClaimed = card.points_display === "0 Coupon point(s)" || card.points_display === "0 Coupon point(s)";
           voucherStatusMap.set(voucherCode, isClaimed);
         }
         
-        // Find all claims for this reward
-        const claims = await Claim.find({
-          reward: reward._id,
-          voucherCode: { $ne: null }, // Only process claims with voucher codes
-        });
+        console.log(`[Odoo Voucher Sync] Created lookup map with ${voucherStatusMap.size} voucher codes from Odoo`);
         
-        console.log(`[Odoo Voucher Sync] Found ${claims.length} claims for reward ${reward._id}`);
-        
+        // Step 5: Update claims by cross-checking with Odoo data
         let updatedCount = 0;
         
-        // Update claim status based on Odoo data
-        for (const claim of claims) {
+        for (const claim of rewardClaims) {
           const voucherCode = claim.voucherCode;
           const isClaimedInOdoo = voucherStatusMap.get(voucherCode);
           
@@ -220,7 +247,7 @@ export async function syncVoucherClaimStatus() {
           }
         }
         
-        totalProcessed += claims.length;
+        totalProcessed += rewardClaims.length;
         totalUpdated += updatedCount;
         
         console.log(`[Odoo Voucher Sync] Updated ${updatedCount} claims for reward ${reward._id}`);

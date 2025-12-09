@@ -14,6 +14,7 @@ export default function Collections() {
   const queryClient = useQueryClient();
   const [activeCardFlipped, setActiveCardFlipped] = useState(false);
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' });
+  const [activatingCardId, setActivatingCardId] = useState(null); // Track which card is being activated
 
   // Pull to refresh
   const { isRefreshing, pullDistance } = usePullToRefresh(
@@ -38,7 +39,10 @@ export default function Collections() {
   });
 
   const activateMutation = useMutation({
-    mutationFn: (id) => customerAPI.activateCardDesign(id),
+    mutationFn: (id) => {
+      setActivatingCardId(id); // Set loading state immediately
+      return customerAPI.activateCardDesign(id);
+    },
     onSuccess: async (data) => {
       // Update user with the full activeCardDesign object from the response
       updateUser({ activeCardDesign: data.data.user.activeCardDesign });
@@ -46,6 +50,7 @@ export default function Collections() {
       await fetchUser();
       queryClient.invalidateQueries(['profile']);
       queryClient.invalidateQueries(['collectibles']);
+      setActivatingCardId(null); // Clear loading state
       setToast({
         isOpen: true,
         message: 'Card design activated!',
@@ -53,6 +58,7 @@ export default function Collections() {
       });
     },
     onError: (error) => {
+      setActivatingCardId(null); // Clear loading state on error
       setToast({
         isOpen: true,
         message: error.response?.data?.message || 'Failed to activate card design',
@@ -297,18 +303,33 @@ export default function Collections() {
 
             const textColor = collectible.textColor || '#FFFFFF';
 
+            const isActivating = activatingCardId === collectible._id;
+            
             return (
               <div
                 key={collectible._id}
                 className={`relative rounded-xl overflow-hidden ${
                   isActive ? 'ring-2 ring-espro-orange' : ''
-                } ${!isUnlocked ? 'opacity-50' : 'cursor-pointer'}`}
+                } ${!isUnlocked ? 'opacity-50' : 'cursor-pointer'} ${isActivating ? 'opacity-75' : ''}`}
                 onClick={() => {
-                  if (isUnlocked && !isActive) {
+                  if (isUnlocked && !isActive && !isActivating) {
                     activateMutation.mutate(collectible._id);
                   }
                 }}
               >
+                {/* Loading overlay */}
+                {isActivating && (
+                  <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center z-10">
+                    <div className="bg-white/90 rounded-lg p-3 flex flex-col items-center gap-2">
+                      <svg className="animate-spin h-6 w-6 text-espro-orange" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span className="text-xs font-medium text-gray-700">Activating...</span>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="h-32 p-3 relative" style={{ ...cardStyle, color: textColor }}>
                   <div className="text-xs opacity-90" style={{ color: textColor }}>ESPRO</div>
                   <div className="text-lg font-bold mt-1" style={{ color: textColor }}>{formatEsproCoinsDisplay(user?.esproCoins || 0)}</div>
@@ -322,7 +343,7 @@ export default function Collections() {
                   <div className="text-sm font-semibold text-gray-800">{collectible.name}</div>
                   {isUnlocked ? (
                     <div className="text-xs text-gray-600 mt-1">
-                      {isActive ? 'Active' : 'Tap to activate'}
+                      {isActive ? 'Active' : isActivating ? 'Activating...' : 'Tap to activate'}
                     </div>
                   ) : collectible.designType === 'reward' ? (
                     <div className="mt-2">
