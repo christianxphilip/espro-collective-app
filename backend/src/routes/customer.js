@@ -421,11 +421,30 @@ router.get('/points-history', async (req, res) => {
     const totalAsString = await PointsTransaction.countDocuments({ user: userId.toString() });
     const totalAllUsers = await PointsTransaction.countDocuments({});
     
+    // Diagnostic: Check a few sample transactions to see what user IDs look like
+    const sampleTransactions = await PointsTransaction.find({})
+      .limit(5)
+      .select('user type amount createdAt')
+      .lean();
+    
+    // Also check if this specific user ID exists in any transaction (using aggregation)
+    const userTransactionsCheck = await PointsTransaction.aggregate([
+      { $project: { userStr: { $toString: '$user' }, userId: 1 } },
+      { $match: { userStr: userObjectId.toString() } },
+      { $count: 'total' }
+    ]);
+    
     console.log('[Points History] Transaction counts:', {
       forThisUserObjectId: totalInDB,
       forThisUserString: totalAsString,
       totalInDatabase: totalAllUsers,
       userId: userObjectId.toString(),
+      userTransactionsViaAggregation: userTransactionsCheck[0]?.total || 0,
+      sampleUserIds: sampleTransactions.map(t => ({
+        user: t.user?.toString(),
+        userType: t.user?.constructor?.name || typeof t.user,
+        type: t.type,
+      })),
     });
     
     // Query transactions - populate referenceId only when it exists
@@ -452,6 +471,16 @@ router.get('/points-history', async (req, res) => {
         amount: transactions[0].amount,
       } : null,
     });
+
+    // If user has lifetimeEsproCoins but no transactions, log a warning
+    if (totalInDB === 0 && req.user.lifetimeEsproCoins > 0) {
+      console.warn('[Points History] User has lifetimeEsproCoins but no transactions found:', {
+        userId: userObjectId.toString(),
+        lifetimeEsproCoins: req.user.lifetimeEsproCoins,
+        esproCoins: req.user.esproCoins,
+        message: 'User may need transaction records created retroactively',
+      });
+    }
 
     res.json({
       success: true,
