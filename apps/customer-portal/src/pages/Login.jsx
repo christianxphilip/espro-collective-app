@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import useAuthStore from '../store/authStore';
 import { settingsAPI } from '../services/api';
@@ -198,8 +198,8 @@ export default function Login() {
             </form>
 
             {/* Footer Text */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
+            <div className="mt-6 space-y-2">
+              <p className="text-sm text-gray-600 text-center">
                 {isLogin ? "New customer? " : "Already have an account? "}
                 <button
                   type="button"
@@ -210,6 +210,13 @@ export default function Login() {
                 </button>
                 {isLogin && ' and start earning rewards!'}
               </p>
+              {isLogin && (
+                <p className="text-sm text-gray-600 text-center">
+                  <Link to="/forgot-password" className="text-espro-orange font-semibold hover:underline">
+                    Forgot your password?
+                  </Link>
+                </p>
+              )}
             </div>
           </div>
         </div>

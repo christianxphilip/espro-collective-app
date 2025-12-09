@@ -6,11 +6,14 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import cron from 'node-cron';
 import mongoose from 'mongoose';
+import helmet from 'helmet';
 import connectDB from './config/db.js';
 import { syncLoyaltyCards } from './services/odooSync.js';
 import { updateOdooBalance } from './services/odooSync.js';
 import OdooBalanceJob from './models/OdooBalanceJob.js';
 import Settings from './models/Settings.js';
+import { generalLimiter } from './middleware/rateLimit.js';
+import { logActivity } from './services/activityLog.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -35,6 +38,31 @@ const app = express();
 // Connect to MongoDB (will be awaited before server starts)
 let dbConnected = false;
 
+// Configure allowed origins for CORS
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  process.env.ADMIN_URL || 'http://localhost:5174',
+  // Production URLs (if set)
+  process.env.CUSTOMER_PORTAL_URL,
+  process.env.ADMIN_PORTAL_URL,
+].filter(Boolean); // Remove undefined values
+
+// Add localhost variants for development and Docker
+// Always include common localhost ports for local development
+allowedOrigins.push(
+  'http://localhost:5173', // Vite dev server - customer portal
+  'http://localhost:5174', // Vite dev server - admin portal
+  'http://localhost:8080', // Docker - customer portal
+  'http://localhost:8081', // Docker - admin portal
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:8081'
+);
+
+// Log allowed origins on startup (for debugging)
+console.log('[Server] CORS allowed origins:', allowedOrigins);
+
 // Ensure upload directories exist
 const uploadDirs = [
   path.join(__dirname, '../uploads/rewards'),
@@ -49,10 +77,63 @@ uploadDirs.forEach(dir => {
   }
 });
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Security Middleware
+// Helmet for security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:", "http:"], // Allow images from any source (for S3, local uploads, etc.)
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow image uploads
+}));
+
+// CORS configuration - restrict to specific origins
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) {
+      // Always allow requests with no origin for development and some production use cases
+      return callback(null, true);
+    }
+    
+    // Normalize origin (remove trailing slash)
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    
+    // Check if origin is in allowed list
+    const isAllowed = allowedOrigins.some(allowed => {
+      const normalizedAllowed = allowed.replace(/\/$/, '');
+      return normalizedOrigin === normalizedAllowed;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      // Log the blocked origin for debugging
+      console.warn(`[CORS] Blocked origin: ${normalizedOrigin}`);
+      console.warn(`[CORS] Allowed origins:`, allowedOrigins);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Rate limiting - apply to all API routes
+app.use('/api/', generalLimiter);
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -167,6 +248,10 @@ function startWorker() {
         const settings = await Settings.getSettings();
         if (!settings.odooBalanceUpdateEnabled) {
           console.log(`[Worker] Odoo balance update is disabled in settings, skipping job ${job._id}`);
+          await logActivity('odoo_balance_update', 'warning',
+            `Odoo balance update is disabled in settings, skipping job ${job._id}`,
+            { jobId: job._id, odooCardId: job.odooCardId }
+          );
           // Mark as completed but skipped
           await OdooBalanceJob.findByIdAndUpdate(job._id, {
             status: 'completed',
@@ -233,6 +318,10 @@ function startWorker() {
       const settings = await Settings.getSettings();
       if (!settings.odooCustomerSyncEnabled) {
         console.log('[Cron] Odoo customer sync is disabled in settings, skipping');
+        await logActivity('odoo_customer_sync', 'warning',
+          'Odoo customer sync is disabled in settings, skipping scheduled sync',
+          {}
+        );
         return;
       }
       
@@ -240,6 +329,10 @@ function startWorker() {
       console.log('[Cron] Odoo customer sync completed:', result);
     } catch (error) {
       console.error('[Cron] Odoo customer sync failed:', error.message);
+      await logActivity('odoo_customer_sync', 'error',
+        `Scheduled Odoo customer sync failed: ${error.message}`,
+        { error: error.message }
+      );
     }
   });
 
@@ -257,6 +350,10 @@ function startWorker() {
       const settings = await Settings.getSettings();
       if (!settings.odooVoucherSyncEnabled) {
         console.log('[Cron] Odoo voucher sync is disabled in settings, skipping');
+        await logActivity('odoo_voucher_sync', 'warning',
+          'Odoo voucher sync is disabled in settings, skipping scheduled sync',
+          {}
+        );
         return;
       }
       
@@ -265,6 +362,10 @@ function startWorker() {
       console.log('[Cron] Odoo voucher claim status sync completed:', result);
     } catch (error) {
       console.error('[Cron] Odoo voucher claim status sync failed:', error.message);
+      await logActivity('odoo_voucher_sync', 'error',
+        `Scheduled Odoo voucher claim status sync failed: ${error.message}`,
+        { error: error.message }
+      );
     }
   });
 

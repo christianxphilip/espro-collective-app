@@ -9,6 +9,7 @@ import Collectible from '../models/Collectible.js';
 import Settings from '../models/Settings.js';
 import { syncLoyaltyCards } from '../services/odooSync.js';
 import odooBalanceQueue from '../jobs/odooBalanceQueue.js';
+import { getActivityLogs, getSyncStatistics } from '../services/activityLog.js';
 import csv from 'csv-parser';
 import multer from 'multer';
 import fs from 'fs';
@@ -648,6 +649,65 @@ router.get('/queue-status', async (req, res) => {
     res.json({
       success: true,
       status,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// @route   GET /api/admin/activity-logs
+// @desc    Get activity logs with filters and pagination
+// @access  Private/Admin
+router.get('/activity-logs', async (req, res) => {
+  try {
+    const {
+      type,
+      status,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 50,
+    } = req.query;
+
+    const filters = {
+      ...(type && { type }),
+      ...(status && { status }),
+      ...(startDate && { startDate }),
+      ...(endDate && { endDate }),
+    };
+
+    const pagination = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+    };
+
+    const result = await getActivityLogs(filters, pagination);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// @route   GET /api/admin/activity-logs/stats
+// @desc    Get sync statistics
+// @access  Private/Admin
+router.get('/activity-logs/stats', async (req, res) => {
+  try {
+    const stats = await getSyncStatistics();
+
+    res.json({
+      success: true,
+      stats,
     });
   } catch (error) {
     res.status(500).json({

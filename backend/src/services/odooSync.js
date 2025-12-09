@@ -2,6 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import User from '../models/User.js';
 import PointsTransaction from '../models/PointsTransaction.js';
+import { logActivity } from './activityLog.js';
 
 const ODOO_URL = 'https://espressionistpos.odoo.com';
 const ODOO_USERNAME = process.env.ODOO_USERNAME || 'espressionist.pos@gmail.com';
@@ -897,9 +898,21 @@ export async function updateOdooBalance(odooCardId, newBalance, description) {
     console.log(`[Odoo Sync] Step 2 response:`, JSON.stringify(step2Response.data, null, 2));
     
     console.log(`[Odoo Sync] Successfully updated balance for card ${odooCardId} (both steps completed)`);
+    
+    // Log successful balance update
+    await logActivity('odoo_balance_update', 'success',
+      `Successfully updated Odoo balance for card ID: ${odooCardId} to ${newBalance}`,
+      { odooCardId, newBalance, description }
+    );
+    
     return step2Response.data;
   } catch (error) {
     console.error('[Odoo Sync] Error updating Odoo balance:', error.message);
+    // Log error
+    await logActivity('odoo_balance_update', 'error',
+      `Failed to update Odoo balance for card ID: ${odooCardId}: ${error.message}`,
+      { odooCardId, newBalance, description, error: error.message }
+    );
     throw error;
   }
 }
@@ -1020,8 +1033,10 @@ async function fetchLoyaltyCardHistoryForTotal(odooCardId) {
  * Optimized: Iterate through our customers and cross-check with Odoo data
  */
 export async function syncLoyaltyCards() {
+  const startTime = Date.now();
   try {
     console.log('[Odoo Sync] Starting loyalty cards sync...');
+    await logActivity('odoo_customer_sync', 'success', 'Starting Odoo customer sync', {});
     
     // Step 1: Get all customers from our database (non-admin users with loyaltyId or odooCardId)
     const customers = await User.find({
@@ -1037,6 +1052,7 @@ export async function syncLoyaltyCards() {
     
     if (customers.length === 0) {
       console.log('[Odoo Sync] No customers to sync');
+      await logActivity('odoo_customer_sync', 'warning', 'No customers to sync', {});
       return {
         success: true,
         processed: 0,
@@ -1285,16 +1301,31 @@ export async function syncLoyaltyCards() {
     
     console.log(`[Odoo Sync] Sync complete: ${updated} updated, ${notFound} not found, ${errors} errors`);
     
-    return {
+    const duration = Date.now() - startTime;
+    const result = {
       success: true,
       processed: customers.length,
       updated,
       notFound,
       errors,
       updates,
+      duration,
     };
+    
+    // Log success
+    await logActivity('odoo_customer_sync', 'success', 
+      `Odoo customer sync completed: ${updated} updated, ${notFound} not found, ${errors} errors`,
+      result
+    );
+    
+    return result;
   } catch (error) {
     console.error('[Odoo Sync] Sync error:', error.message);
+    const duration = Date.now() - startTime;
+    await logActivity('odoo_customer_sync', 'error', 
+      `Odoo customer sync failed: ${error.message}`,
+      { error: error.message, duration }
+    );
     throw error;
   }
 }

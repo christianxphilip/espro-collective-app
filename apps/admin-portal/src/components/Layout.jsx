@@ -16,6 +16,7 @@ export default function Layout({ children }) {
     else if (path.includes('/collections')) setActiveTab('collections');
     else if (path.includes('/referrals')) setActiveTab('referrals');
     else if (path.includes('/loyalty-ids')) setActiveTab('loyalty-ids');
+    else if (path.includes('/activity-logs')) setActiveTab('activity-logs');
     else if (path.includes('/settings')) setActiveTab('settings');
     else setActiveTab('dashboard');
   }, [location.pathname]);
@@ -34,6 +35,7 @@ export default function Layout({ children }) {
     { id: 'collections', label: 'Card Designs', icon: '🎨', path: '/collections' },
     { id: 'referrals', label: 'Referrals', icon: '🎫', path: '/referrals' },
     { id: 'loyalty-ids', label: 'Loyalty IDs', icon: '🆔', path: '/loyalty-ids' },
+    { id: 'activity-logs', label: 'Activity Logs', icon: '📝', path: '/activity-logs' },
     { id: 'settings', label: 'Settings', icon: '⚙️', path: '/settings' },
   ];
 

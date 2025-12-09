@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import Reward from '../models/Reward.js';
 import Claim from '../models/Claim.js';
 import { ensureAuthenticated } from './odooSync.js';
+import { logActivity } from './activityLog.js';
 
 const ODOO_URL = 'https://espressionistpos.odoo.com';
 
@@ -130,8 +131,10 @@ async function fetchVoucherStatusFromOdoo(programId) {
  * Checks if vouchers are claimed (points_display === "0 Coupon point(s)") and updates Claim records
  */
 export async function syncVoucherClaimStatus() {
+  const startTime = Date.now();
   try {
     console.log('[Odoo Voucher Sync] Starting voucher claim status sync...');
+    await logActivity('odoo_voucher_sync', 'success', 'Starting Odoo voucher claim status sync', {});
     
     // Step 1: Get all claims with voucher codes that belong to rewards with odooRewardId
     const claims = await Claim.find({
@@ -156,6 +159,7 @@ export async function syncVoucherClaimStatus() {
     
     if (validClaims.length === 0) {
       console.log('[Odoo Voucher Sync] No claims with voucher codes found for rewards with Odoo Reward ID');
+      await logActivity('odoo_voucher_sync', 'warning', 'No claims with voucher codes found for rewards with Odoo Reward ID', {});
       return {
         success: true,
         processed: 0,
@@ -259,14 +263,29 @@ export async function syncVoucherClaimStatus() {
     
     console.log(`[Odoo Voucher Sync] Sync complete: ${totalProcessed} processed, ${totalUpdated} updated, ${totalErrors} errors`);
     
-    return {
+    const duration = Date.now() - startTime;
+    const result = {
       success: true,
       processed: totalProcessed,
       updated: totalUpdated,
       errors: totalErrors,
+      duration,
     };
+    
+    // Log success
+    await logActivity('odoo_voucher_sync', 'success',
+      `Odoo voucher claim status sync completed: ${totalProcessed} processed, ${totalUpdated} updated, ${totalErrors} errors`,
+      result
+    );
+    
+    return result;
   } catch (error) {
     console.error('[Odoo Voucher Sync] Sync error:', error.message);
+    const duration = Date.now() - startTime;
+    await logActivity('odoo_voucher_sync', 'error',
+      `Odoo voucher claim status sync failed: ${error.message}`,
+      { error: error.message, duration }
+    );
     throw error;
   }
 }

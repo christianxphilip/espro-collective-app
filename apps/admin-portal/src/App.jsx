@@ -9,6 +9,7 @@ import Promotions from './pages/Promotions';
 import Collections from './pages/Collections';
 import Referrals from './pages/Referrals';
 import LoyaltyIds from './pages/LoyaltyIds';
+import ActivityLogs from './pages/ActivityLogs';
 import Settings from './pages/Settings';
 import { authAPI } from './services/api';
 
@@ -114,6 +115,14 @@ function App() {
           element={
             <PrivateRoute>
               <LoyaltyIds />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/activity-logs"
+          element={
+            <PrivateRoute>
+              <ActivityLogs />
             </PrivateRoute>
           }
         />

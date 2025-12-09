@@ -1,17 +1,56 @@
 import express from 'express';
+import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import AvailableLoyaltyId from '../models/AvailableLoyaltyId.js';
 import ReferralCode from '../models/ReferralCode.js';
 import Settings from '../models/Settings.js';
+import PasswordResetToken from '../models/PasswordResetToken.js';
 import { generateToken, protect } from '../middleware/auth.js';
+import { authLimiter, passwordResetLimiter } from '../middleware/rateLimit.js';
+import { sendPasswordResetEmail } from '../services/email.js';
 import { createOdooPartner, createOdooLoyaltyCard, updateOdooPartnerBarcode } from '../services/odooSync.js';
 
 const router = express.Router();
 
+// Validation middleware helper
+const validate = (validations) => {
+  return async (req, res, next) => {
+    await Promise.all(validations.map(validation => validation.run(req)));
+    const errors = validationResult(req);
+    if (errors.isEmpty()) {
+      return next();
+    }
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: errors.array(),
+    });
+  };
+};
+
 // @route   POST /api/auth/register
 // @desc    Register a new customer
 // @access  Public
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, validate([
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Name is required')
+    .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters')
+    .escape(),
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Please provide a valid email address')
+    .normalizeEmail()
+    .toLowerCase(),
+  body('password')
+    .notEmpty().withMessage('Password is required')
+    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+  body('referralCode')
+    .optional()
+    .trim()
+    .escape(),
+]), async (req, res) => {
   try {
     const { name, email, password, referralCode } = req.body;
 
@@ -233,7 +272,16 @@ router.post('/register', async (req, res) => {
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, validate([
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Please provide a valid email address')
+    .normalizeEmail()
+    .toLowerCase(),
+  body('password')
+    .notEmpty().withMessage('Password is required'),
+]), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -312,6 +360,140 @@ router.get('/me', protect, async (req, res) => {
     res.json({
       success: true,
       user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Request password reset
+// @access  Public
+router.post('/forgot-password', passwordResetLimiter, validate([
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Please provide a valid email address')
+    .normalizeEmail()
+    .toLowerCase(),
+]), async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Find user by email (don't reveal if email doesn't exist for security)
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    // Always return success message (don't reveal if email exists)
+    // This prevents email enumeration attacks
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent.',
+      });
+    }
+
+    // Check if user is admin (admins might not have passwords)
+    if (user.isAdmin && !user.password) {
+      return res.json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent.',
+      });
+    }
+
+    // Generate reset token
+    const token = PasswordResetToken.generateToken();
+
+    // Save reset token
+    await PasswordResetToken.create({
+      user: user._id,
+      token,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+      ipAddress: req.ip,
+    });
+
+    // Send reset email
+    try {
+      await sendPasswordResetEmail(email, token, user.name);
+    } catch (emailError) {
+      console.error('[Auth] Error sending password reset email:', emailError.message);
+      // Don't fail the request, but log the error
+      // The token is still created, user can request again if email fails
+    }
+
+    res.json({
+      success: true,
+      message: 'If an account with that email exists, a password reset link has been sent.',
+    });
+  } catch (error) {
+    console.error('[Auth] Error in forgot-password:', error.message);
+    // Still return success to prevent email enumeration
+    res.json({
+      success: true,
+      message: 'If an account with that email exists, a password reset link has been sent.',
+    });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with token
+// @access  Public
+router.post('/reset-password', validate([
+  body('token')
+    .notEmpty().withMessage('Reset token is required'),
+  body('password')
+    .notEmpty().withMessage('Password is required')
+    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+]), async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    // Find reset token
+    const resetToken = await PasswordResetToken.findOne({ token });
+
+    if (!resetToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token.',
+      });
+    }
+
+    // Check if token is valid (not expired and not used)
+    if (!resetToken.isValid()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token.',
+      });
+    }
+
+    // Find user
+    const user = await User.findById(resetToken.user);
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'User not found.',
+      });
+    }
+
+    // Update password
+    user.password = password;
+    await user.save();
+
+    // Mark token as used
+    resetToken.usedAt = new Date();
+    await resetToken.save();
+
+    // Invalidate all other reset tokens for this user
+    await PasswordResetToken.updateMany(
+      { user: user._id, usedAt: null, _id: { $ne: resetToken._id } },
+      { usedAt: new Date() }
+    );
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully. You can now login with your new password.',
     });
   } catch (error) {
     res.status(500).json({

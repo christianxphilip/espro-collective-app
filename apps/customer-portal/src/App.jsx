@@ -12,6 +12,8 @@ import ClaimHistory from './pages/ClaimHistory';
 import QRCodeView from './pages/QRCodeView';
 import MyVouchers from './pages/MyVouchers';
 import PointsHistory from './pages/PointsHistory';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function PrivateRoute({ children }) {
   const { user, token, fetchUser } = useAuthStore();
@@ -67,6 +69,8 @@ function App() {
       <div className="mobile-container">
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             path="/"
             element={
