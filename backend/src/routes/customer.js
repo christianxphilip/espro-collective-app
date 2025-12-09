@@ -472,12 +472,144 @@ router.get('/points-history', async (req, res) => {
       } : null,
     });
 
-    // If user has lifetimeEsproCoins but no transactions, log a warning
-    if (totalInDB === 0 && req.user.lifetimeEsproCoins > 0) {
+    // If user has lifetimeEsproCoins but no transactions, try to create them from Odoo history
+    if (totalInDB === 0 && req.user.lifetimeEsproCoins > 0 && req.user.odooCardId) {
+      console.warn('[Points History] User has lifetimeEsproCoins but no transactions found. Attempting to create from Odoo history:', {
+        userId: userObjectId.toString(),
+        lifetimeEsproCoins: req.user.lifetimeEsproCoins,
+        esproCoins: req.user.esproCoins,
+        odooCardId: req.user.odooCardId,
+      });
+      
+      try {
+        // Import Odoo sync function to fetch history
+        const { fetchLoyaltyCardHistoryForTotal } = await import('../services/odooSync.js');
+        const historyData = await fetchLoyaltyCardHistoryForTotal(req.user.odooCardId);
+        
+        if (historyData && historyData.history && Array.isArray(historyData.history) && historyData.history.length > 0) {
+          // Create transactions from Odoo history
+          let runningBalance = 0;
+          let transactionsCreated = 0;
+          
+          for (const entry of historyData.history) {
+            const issued = entry.issued ? parseFloat(entry.issued) : 0;
+            const used = entry.used ? parseFloat(entry.used) : 0;
+            const entryDate = entry.create_date ? new Date(entry.create_date) : new Date();
+            
+            // Update running balance
+            if (issued > 0) runningBalance += issued;
+            if (used > 0) runningBalance -= used;
+            
+            // Only create transaction record for issued (earned) points
+            if (issued > 0) {
+              await PointsTransaction.findOneAndUpdate(
+                {
+                  user: userObjectId,
+                  type: 'earned',
+                  amount: issued,
+                  createdAt: {
+                    $gte: new Date(entryDate.getTime() - 60000),
+                    $lte: new Date(entryDate.getTime() + 60000),
+                  },
+                  referenceType: 'OdooSync',
+                },
+                {
+                  $set: {
+                    user: userObjectId,
+                    type: 'earned',
+                    amount: issued,
+                    description: entry.description || 'Points earned from purchase',
+                    referenceId: null,
+                    referenceType: 'OdooSync',
+                    balanceAfter: runningBalance,
+                  },
+                  $setOnInsert: {
+                    createdAt: entryDate,
+                  },
+                },
+                {
+                  upsert: true,
+                  new: true,
+                  setDefaultsOnInsert: true,
+                }
+              );
+              transactionsCreated++;
+            }
+          }
+          
+          console.log(`[Points History] Created ${transactionsCreated} transactions from Odoo history for user ${userObjectId.toString()}`);
+          
+          // Re-query transactions after creating them
+          const updatedTransactions = await PointsTransaction.find({ user: userObjectId })
+            .populate({
+              path: 'referenceId',
+              select: 'title name',
+              options: { strictPopulate: false },
+            })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+          
+          const updatedTotal = await PointsTransaction.countDocuments({ user: userObjectId });
+          
+          return res.json({
+            success: true,
+            transactions: updatedTransactions,
+            pagination: {
+              page,
+              limit,
+              total: updatedTotal,
+              pages: Math.ceil(updatedTotal / limit),
+            },
+          });
+        } else {
+          // No Odoo history available, create a single retroactive transaction
+          console.log('[Points History] No Odoo history available, creating retroactive transaction');
+          await PointsTransaction.create({
+            user: userObjectId,
+            type: 'earned',
+            amount: req.user.lifetimeEsproCoins,
+            description: 'Points earned (retroactive)',
+            referenceId: null,
+            referenceType: 'OdooSync',
+            balanceAfter: req.user.esproCoins,
+            createdAt: req.user.createdAt || new Date(),
+          });
+          
+          // Re-query transactions
+          const updatedTransactions = await PointsTransaction.find({ user: userObjectId })
+            .populate({
+              path: 'referenceId',
+              select: 'title name',
+              options: { strictPopulate: false },
+            })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+          
+          const updatedTotal = await PointsTransaction.countDocuments({ user: userObjectId });
+          
+          return res.json({
+            success: true,
+            transactions: updatedTransactions,
+            pagination: {
+              page,
+              limit,
+              total: updatedTotal,
+              pages: Math.ceil(updatedTotal / limit),
+            },
+          });
+        }
+      } catch (error) {
+        console.error('[Points History] Error creating retroactive transactions:', error.message);
+        // Continue with empty result if creation fails
+      }
+    } else if (totalInDB === 0 && req.user.lifetimeEsproCoins > 0) {
       console.warn('[Points History] User has lifetimeEsproCoins but no transactions found:', {
         userId: userObjectId.toString(),
         lifetimeEsproCoins: req.user.lifetimeEsproCoins,
         esproCoins: req.user.esproCoins,
+        odooCardId: req.user.odooCardId || 'none',
         message: 'User may need transaction records created retroactively',
       });
     }
