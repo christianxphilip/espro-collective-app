@@ -1192,6 +1192,10 @@ export async function syncLoyaltyCards() {
         
         await fullUser.save();
         
+        // Check if user has transactions - if not and they have lifetimeEsproCoins, we'll create them
+        const existingTransactions = await PointsTransaction.countDocuments({ user: fullUser._id });
+        const needsRetroactiveTransaction = existingTransactions === 0 && fullUser.lifetimeEsproCoins > 0;
+        
         // Create transaction records from Odoo history if available
         // Only create records for "issued" (earned) points, not "used" points
         // "Used" points are tracked separately when customers redeem rewards in the app
@@ -1304,6 +1308,30 @@ export async function syncLoyaltyCards() {
             console.log(`[Odoo Sync] Created transaction for balance increase (no history): ${balanceDifference} points for user ${fullUser._id}`);
           } catch (error) {
             console.error(`[Odoo Sync] Failed to create transaction (no history):`, error.message);
+          }
+        }
+        
+        // If user has lifetimeEsproCoins but no transactions created yet, create retroactive transaction
+        // This handles cases where users have points but transactions weren't created during sync
+        if (needsRetroactiveTransaction) {
+          try {
+            // Re-check transactions count after potential creation above
+            const finalTransactionCount = await PointsTransaction.countDocuments({ user: fullUser._id });
+            if (finalTransactionCount === 0) {
+              await PointsTransaction.create({
+                user: fullUser._id,
+                type: 'earned',
+                amount: fullUser.lifetimeEsproCoins,
+                description: 'Points earned (retroactive)',
+                referenceId: null,
+                referenceType: 'OdooSync',
+                balanceAfter: points,
+                createdAt: fullUser.createdAt || new Date(),
+              });
+              console.log(`[Odoo Sync] Created retroactive transaction: ${fullUser.lifetimeEsproCoins} points for user ${fullUser._id} (lifetimeEsproCoins: ${fullUser.lifetimeEsproCoins}, no history available)`);
+            }
+          } catch (error) {
+            console.error(`[Odoo Sync] Failed to create retroactive transaction:`, error.message);
           }
         }
         
