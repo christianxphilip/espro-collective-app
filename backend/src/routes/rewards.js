@@ -14,7 +14,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import csv from 'csv-parser';
-import { getStorage, getFileUrl } from '../services/storage.js';
+import { getStorage, getFileUrl, isUsingS3 } from '../services/storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,36 +40,74 @@ const upload = multer({
 
 // Combined multer for images and CSV files
 // CSV files must use local storage (for parsing), images can use S3
-const combinedStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // CSV files go to temp (must be local for parsing)
-    if (file.fieldname === 'voucherCodes' || file.originalname.endsWith('.csv')) {
+// Create a custom storage that uses S3 for images and local for CSV
+const rewardsS3Storage = getStorage('rewards');
+
+// Custom storage engine that uses S3 for images and local for CSV
+class CombinedStorage {
+  _handleFile(req, file, cb) {
+    const isCSV = file.fieldname === 'voucherCodes' || file.originalname.endsWith('.csv');
+    
+    if (isCSV) {
+      // CSV files always use local storage (needed for parsing)
       const tempDir = path.join(__dirname, '../../uploads/temp');
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
-      cb(null, tempDir);
+      
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const filename = 'voucher-codes-' + uniqueSuffix + path.extname(file.originalname);
+      const filepath = path.join(tempDir, filename);
+      
+      const outStream = fs.createWriteStream(filepath);
+      file.stream.pipe(outStream);
+      outStream.on('error', cb);
+      outStream.on('finish', () => {
+        cb(null, {
+          path: filepath,
+          filename: filename,
+        });
+      });
     } else {
-      // Images use storage service (S3 or local)
-      const rewardsDir = path.join(__dirname, '../../uploads/rewards');
-      if (!fs.existsSync(rewardsDir)) {
-        fs.mkdirSync(rewardsDir, { recursive: true });
+      // Images use S3 if configured, otherwise local
+      // rewardsS3Storage is already the correct storage (S3 or local) from getStorage()
+      if (rewardsS3Storage && typeof rewardsS3Storage._handleFile === 'function') {
+        // Use the storage engine (S3 or local) returned by getStorage()
+        rewardsS3Storage._handleFile(req, file, cb);
+      } else {
+        // Fallback to local storage if storage engine is not available
+        const rewardsDir = path.join(__dirname, '../../uploads/rewards');
+        if (!fs.existsSync(rewardsDir)) {
+          fs.mkdirSync(rewardsDir, { recursive: true });
+        }
+        
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const filename = 'reward-' + uniqueSuffix + path.extname(file.originalname);
+        const filepath = path.join(rewardsDir, filename);
+        
+        const outStream = fs.createWriteStream(filepath);
+        file.stream.pipe(outStream);
+        outStream.on('error', cb);
+        outStream.on('finish', () => {
+          cb(null, {
+            path: filepath,
+            filename: filename,
+          });
+        });
       }
-      cb(null, rewardsDir);
     }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    if (file.fieldname === 'voucherCodes' || file.originalname.endsWith('.csv')) {
-      cb(null, 'voucher-codes-' + uniqueSuffix + path.extname(file.originalname));
-    } else {
-      cb(null, 'reward-' + uniqueSuffix + path.extname(file.originalname));
+  }
+  
+  _removeFile(req, file, cb) {
+    if (file.path && fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
     }
-  },
-});
+    cb(null);
+  }
+}
 
 const combinedUpload = multer({
-  storage: combinedStorage,
+  storage: new CombinedStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     // Allow CSV files for voucherCodes field
