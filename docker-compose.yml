@@ -30,8 +30,9 @@ services:
       - ODOO_PASSWORD=Coffee@0118
       - EMAIL_USER=espressionistmarketing@gmail.com
       - EMAIL_PASS=uipn ddsq ubwz yywd
-      - FRONTEND_URL=http://localhost:8081
-      - ADMIN_URL=http://localhost:8080
+      - CUSTOMER_PORTAL_URL=http://localhost:8080
+      - FRONTEND_URL=http://localhost:8080
+      - ADMIN_URL=http://localhost:8081
     volumes:
       - ./backend/uploads:/app/uploads
     depends_on:

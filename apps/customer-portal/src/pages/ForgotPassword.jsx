@@ -7,11 +7,13 @@ import Toast from '../components/Toast';
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const forgotPasswordMutation = useMutation({
     mutationFn: (email) => authAPI.forgotPassword(email),
     onSuccess: (data) => {
+      setIsSubmitting(false);
       setToast({
         isOpen: true,
         message: data.data.message || 'If an account with that email exists, a password reset link has been sent.',
@@ -21,6 +23,7 @@ export default function ForgotPassword() {
       setEmail('');
     },
     onError: (error) => {
+      setIsSubmitting(false);
       setToast({
         isOpen: true,
         message: error.response?.data?.message || 'An error occurred. Please try again later.',
@@ -39,6 +42,7 @@ export default function ForgotPassword() {
       });
       return;
     }
+    setIsSubmitting(true); // Set loading immediately
     forgotPasswordMutation.mutate(email);
   };
 
@@ -88,10 +92,10 @@ export default function ForgotPassword() {
 
               <button
                 type="submit"
-                disabled={forgotPasswordMutation.isLoading}
+                disabled={isSubmitting || forgotPasswordMutation.isLoading}
                 className="w-full bg-gray-900 text-white py-4 rounded-xl font-semibold text-base shadow-md hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {forgotPasswordMutation.isLoading ? (
+                {(isSubmitting || forgotPasswordMutation.isLoading) ? (
                   <>
                     <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

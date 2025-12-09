@@ -21,7 +21,9 @@ const transporter = nodemailer.createTransport({
  */
 export async function sendPasswordResetEmail(email, resetToken, userName) {
   try {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    // Use CUSTOMER_PORTAL_URL if set, otherwise FRONTEND_URL, otherwise default
+    // Customer portal is where password reset should happen (not admin portal)
+    const frontendUrl = process.env.CUSTOMER_PORTAL_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
     const mailOptions = {

@@ -11,6 +11,7 @@ import Referrals from './pages/Referrals';
 import LoyaltyIds from './pages/LoyaltyIds';
 import ActivityLogs from './pages/ActivityLogs';
 import Settings from './pages/Settings';
+import ResetPasswordRedirect from './pages/ResetPasswordRedirect';
 import { authAPI } from './services/api';
 
 function PrivateRoute({ children }) {
@@ -54,6 +55,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPasswordRedirect />} />
         <Route
           path="/"
           element={
