@@ -15,6 +15,7 @@ export default function PointsHistory() {
   const { data: historyData, isLoading } = useQuery({
     queryKey: ['points-history', page],
     queryFn: () => customerAPI.getPointsHistory({ page, limit }).then((res) => res.data),
+    staleTime: 1 * 60 * 1000, // 1 minute (points history can change)
   });
 
   // Pull to refresh

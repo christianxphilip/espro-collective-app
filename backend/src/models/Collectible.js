@@ -84,6 +84,9 @@ const collectibleSchema = new mongoose.Schema({
   timestamps: true,
 });
 
+// Indexes for efficient queries
+collectibleSchema.index({ isActive: 1, lifetimeEsproCoinsRequired: 1 }); // For active collectibles listing
+
 const Collectible = mongoose.model('Collectible', collectibleSchema);
 
 export default Collectible;

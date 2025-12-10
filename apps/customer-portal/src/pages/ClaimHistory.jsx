@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { getBaseApiUrl } from '../utils/api';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import useAuthStore from '../store/authStore';
+import Barcode from '../components/Barcode';
 
 export default function ClaimHistory() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function ClaimHistory() {
   const { data: claims, isLoading } = useQuery({
     queryKey: ['claims'],
     queryFn: () => customerAPI.getClaims().then((res) => res.data.claims),
+    staleTime: 2 * 60 * 1000, // 2 minutes (claims can change frequently)
   });
 
   // Pull to refresh
@@ -96,7 +98,14 @@ export default function ClaimHistory() {
                     <div className="text-sm text-gray-600 mb-2">
                       Claimed on {new Date(claim.claimedAt).toLocaleDateString()}
                     </div>
-                    <div className="text-xs text-gray-500 font-mono">{claim.voucherCode}</div>
+                    {claim.voucherCode && (
+                      <>
+                        <div className="text-xs text-gray-500 font-mono mb-2">{claim.voucherCode}</div>
+                        <div className="mt-2">
+                          <Barcode value={claim.voucherCode} options={{ height: 40, fontSize: 10, margin: 5 }} />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -126,8 +135,9 @@ export default function ClaimHistory() {
               ) : null;
             })()}
             <div className="bg-gray-100 rounded-lg p-4 mb-4">
-              <div className="text-sm text-gray-600 mb-1">Voucher Code</div>
-              <div className="text-lg font-mono font-semibold">{selectedClaim.voucherCode}</div>
+              <div className="text-sm text-gray-600 mb-2">Voucher Code</div>
+              <div className="text-lg font-mono font-semibold mb-3">{selectedClaim.voucherCode}</div>
+              <Barcode value={selectedClaim.voucherCode} options={{ height: 60, fontSize: 14 }} />
             </div>
             <button
               onClick={() => setSelectedClaim(null)}

@@ -14,19 +14,35 @@ function generateReferralCode(prefix = 'CLUB') {
 }
 
 // @route   GET /api/admin/referrals
-// @desc    Get all referral codes with usage stats
+// @desc    Get all referral codes with usage stats (paginated)
 // @access  Private/Admin
 router.get('/', protect, requireAdmin, async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
     const referrals = await ReferralCode.find()
+      .select('_id code isActive currentUses maxUses createdAt assignedCardDesign assignedReward createdBy')
       .populate('assignedCardDesign', 'name imageUrl designType')
       .populate('assignedReward', 'title imageUrl esproCoinsRequired')
       .populate('createdBy', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await ReferralCode.countDocuments();
 
     res.json({
       success: true,
       referrals,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     res.status(500).json({

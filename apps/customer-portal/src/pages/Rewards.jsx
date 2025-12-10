@@ -25,12 +25,14 @@ export default function Rewards() {
   const { data: rewards, isLoading } = useQuery({
     queryKey: ['rewards'],
     queryFn: () => customerAPI.getRewards().then((res) => res.data.rewards),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Fetch collectibles for card design rewards
   const { data: collectiblesResponse } = useQuery({
     queryKey: ['collectibles'],
     queryFn: () => customerAPI.getCollectibles().then((res) => res.data.collectibles),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const collectibles = collectiblesResponse || [];
@@ -78,23 +80,25 @@ export default function Rewards() {
         // DO NOT use claim.awardedCardDesign as it might be from an old claim
         
         // Log all sources to debug ID mismatch
-        console.log('[Rewards] API Response Analysis - CRITICAL:', {
-          dataAwardedCardDesign: data?.data?.awardedCardDesign ? {
-            _id: data.data.awardedCardDesign._id?.toString(),
-            name: data.data.awardedCardDesign.name,
-            imageUrl: data.data.awardedCardDesign.imageUrl
-          } : null,
-          claimAwardedCardDesign: claim?.awardedCardDesign ? {
-            _id: claim.awardedCardDesign._id?.toString(),
-            name: claim.awardedCardDesign.name
-          } : null,
-          finalAwardedCardDesign: awardedCardDesign ? {
-            _id: awardedCardDesign._id?.toString(),
-            name: awardedCardDesign.name
-          } : null,
-          usingDataAwardedCardDesign: !!data?.data?.awardedCardDesign,
-          usingClaimAwardedCardDesign: !data?.data?.awardedCardDesign && !!claim?.awardedCardDesign
-        });
+        if (import.meta.env.DEV) {
+          console.log('[Rewards] API Response Analysis - CRITICAL:', {
+            dataAwardedCardDesign: data?.data?.awardedCardDesign ? {
+              _id: data.data.awardedCardDesign._id?.toString(),
+              name: data.data.awardedCardDesign.name,
+              imageUrl: data.data.awardedCardDesign.imageUrl
+            } : null,
+            claimAwardedCardDesign: claim?.awardedCardDesign ? {
+              _id: claim.awardedCardDesign._id?.toString(),
+              name: claim.awardedCardDesign.name
+            } : null,
+            finalAwardedCardDesign: awardedCardDesign ? {
+              _id: awardedCardDesign._id?.toString(),
+              name: awardedCardDesign.name
+            } : null,
+            usingDataAwardedCardDesign: !!data?.data?.awardedCardDesign,
+            usingClaimAwardedCardDesign: !data?.data?.awardedCardDesign && !!claim?.awardedCardDesign
+          });
+        }
         
         // CRITICAL: If we don't have awardedCardDesign from data.data, this is an error for card design rewards
         if (!awardedCardDesign) {

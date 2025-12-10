@@ -7,6 +7,7 @@ import fs from 'fs';
 import cron from 'node-cron';
 import mongoose from 'mongoose';
 import helmet from 'helmet';
+import compression from 'compression';
 import connectDB from './config/db.js';
 import { syncLoyaltyCards } from './services/odooSync.js';
 import { updateOdooBalance } from './services/odooSync.js';
@@ -25,6 +26,7 @@ import claimRoutes from './routes/claims.js';
 import aiRoutes from './routes/ai.js';
 import referralRoutes from './routes/referrals.js';
 import settingsRoutes from './routes/settings.js';
+import healthRoutes from './routes/health.js';
 
 // ES6 module fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -53,10 +55,12 @@ allowedOrigins.push(
   'http://localhost:5174', // Vite dev server - admin portal
   'http://localhost:8080', // Docker - customer portal
   'http://localhost:8081', // Docker - admin portal
+  'http://localhost:8000', // Backend port (for direct image access)
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
   'http://127.0.0.1:8080',
-  'http://127.0.0.1:8081'
+  'http://127.0.0.1:8081',
+  'http://127.0.0.1:8000' // Backend port (for direct image access)
 );
 
 // Log allowed origins on startup (for debugging)
@@ -93,6 +97,7 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false, // Allow image uploads
+  crossOriginResourcePolicy: false, // Disable CORP to allow cross-origin image loading
 }));
 
 // CORS configuration - restrict to specific origins
@@ -127,19 +132,39 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Response compression middleware (reduces bandwidth by 60-80%)
+app.use(compression());
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), message: 'ESPRO Collective API is running' });
+// Serve uploaded files with CORS headers
+// Static files are public content, so allow all origins
+app.use('/uploads', (req, res, next) => {
+  // Set CORS headers for static file requests (allow all origins for public images)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
 });
 
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  setHeaders: (res, filePath) => {
+    // Ensure CORS headers are set even in setHeaders callback
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+  }
+}));
+
 // Routes
+app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/customer', customerRoutes);
 app.use('/api/admin', adminRoutes);

@@ -6,6 +6,7 @@ import { FaArrowLeft, FaCheckCircle, FaClock } from 'react-icons/fa';
 import { getBaseApiUrl } from '../utils/api';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import useAuthStore from '../store/authStore';
+import Barcode from '../components/Barcode';
 
 export default function MyVouchers() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function MyVouchers() {
   const { data: vouchersData, isLoading } = useQuery({
     queryKey: ['vouchers'],
     queryFn: () => customerAPI.getVouchers().then((res) => res.data.vouchers),
+    staleTime: 2 * 60 * 1000, // 2 minutes (vouchers can change frequently)
   });
 
   // Pull to refresh
@@ -135,8 +137,9 @@ export default function MyVouchers() {
                                 <div className="text-sm text-gray-600 mb-2">{voucher.reward.description}</div>
                               )}
                               <div className="bg-gray-100 rounded-lg p-3 mb-2">
-                                <div className="text-xs text-gray-600 mb-1">Voucher Code</div>
-                                <div className="text-lg font-mono font-semibold text-gray-900">{voucher.voucherCode}</div>
+                                <div className="text-xs text-gray-600 mb-2">Voucher Code</div>
+                                <div className="text-lg font-mono font-semibold text-gray-900 mb-2">{voucher.voucherCode}</div>
+                                <Barcode value={voucher.voucherCode} options={{ height: 50, fontSize: 12 }} />
                               </div>
                               <div className="text-xs text-gray-500">
                                 Claimed on {new Date(voucher.claimedAt).toLocaleDateString()}
@@ -182,9 +185,10 @@ export default function MyVouchers() {
                               {voucher.reward?.description && (
                                 <div className="text-sm text-gray-600 mb-2">{voucher.reward.description}</div>
                               )}
-                              <div className="bg-gray-100 rounded-lg p-3 mb-2">
-                                <div className="text-xs text-gray-600 mb-1">Voucher Code</div>
-                                <div className="text-lg font-mono font-semibold text-gray-900 line-through">{voucher.voucherCode}</div>
+                              <div className="bg-gray-100 rounded-lg p-3 mb-2 opacity-60">
+                                <div className="text-xs text-gray-600 mb-2">Voucher Code</div>
+                                <div className="text-lg font-mono font-semibold text-gray-900 line-through mb-2">{voucher.voucherCode}</div>
+                                <Barcode value={voucher.voucherCode} options={{ height: 50, fontSize: 12 }} />
                               </div>
                               <div className="text-xs text-gray-500">
                                 Used on {voucher.usedAt ? new Date(voucher.usedAt).toLocaleDateString() : 'N/A'}

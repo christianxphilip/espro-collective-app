@@ -57,11 +57,7 @@ function App() {
   }, [token, fetchUser]);
 
   if (initialLoading) {
-    return (
-      <div className="mobile-container" style={{ position: 'relative', padding: 0 }}>
-        <LoadingScreen />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (

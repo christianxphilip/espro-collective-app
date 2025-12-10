@@ -34,7 +34,7 @@ export default function LoadingScreen() {
   }, []);
 
   return (
-    <div className="absolute inset-0 bg-gradient-to-br from-espro-orange via-orange-500 to-orange-600 flex flex-col items-center justify-center p-6" style={{ borderRadius: '24px' }}>
+    <div className="fixed inset-0 bg-gradient-to-br from-espro-orange via-orange-500 to-orange-600 flex flex-col items-center justify-center p-6 z-50" style={{ width: '100vw', height: '100vh', top: 0, left: 0, right: 0, bottom: 0 }}>
       <div className="text-center text-white">
         {/* Logo Icon */}
         <div className="w-30 h-30 bg-white/20 backdrop-blur-lg rounded-full mx-auto mb-8 flex items-center justify-center" style={{ width: '120px', height: '120px' }}>

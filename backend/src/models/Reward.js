@@ -91,6 +91,9 @@ const rewardSchema = new mongoose.Schema({
   timestamps: true,
 });
 
+// Indexes for efficient queries
+rewardSchema.index({ isActive: 1, createdAt: -1 }); // For active rewards listing
+
 const Reward = mongoose.model('Reward', rewardSchema);
 
 export default Reward;

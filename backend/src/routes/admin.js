@@ -35,20 +35,46 @@ const upload = multer({
 // @access  Private/Admin
 router.get('/dashboard', async (req, res) => {
   try {
-    const totalCustomers = await User.countDocuments({ isAdmin: false });
-    const totalRewards = await Reward.countDocuments();
-    const totalPromotions = await Promotion.countDocuments();
-    const totalClaims = await Claim.countDocuments();
-    const totalLoyaltyIds = await AvailableLoyaltyId.countDocuments();
-    const availableLoyaltyIds = await AvailableLoyaltyId.countDocuments({ isAssigned: false });
+    // Use parallel queries and aggregation for better performance
+    const [
+      totalCustomers,
+      totalRewards,
+      totalPromotions,
+      totalClaims,
+      totalLoyaltyIds,
+      availableLoyaltyIds,
+      coinsDistributedResult,
+      lifetimeCoinsResult
+    ] = await Promise.all([
+      User.countDocuments({ isAdmin: false }),
+      Reward.countDocuments(),
+      Promotion.countDocuments(),
+      Claim.countDocuments(),
+      AvailableLoyaltyId.countDocuments(),
+      AvailableLoyaltyId.countDocuments({ isAssigned: false }),
+      // Use aggregation instead of fetching all claims
+      Claim.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$esproCoinsDeducted' }
+          }
+        }
+      ]),
+      // Use aggregation instead of fetching all users
+      User.aggregate([
+        { $match: { isAdmin: false } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$lifetimeEsproCoins' }
+          }
+        }
+      ])
+    ]);
 
-    // Get total espro coins distributed
-    const claims = await Claim.find();
-    const totalCoinsDistributed = claims.reduce((sum, claim) => sum + claim.esproCoinsDeducted, 0);
-
-    // Get total lifetime coins
-    const users = await User.find({ isAdmin: false });
-    const totalLifetimeCoins = users.reduce((sum, user) => sum + user.lifetimeEsproCoins, 0);
+    const totalCoinsDistributed = coinsDistributedResult[0]?.total || 0;
+    const totalLifetimeCoins = lifetimeCoinsResult[0]?.total || 0;
 
     res.json({
       success: true,
@@ -124,8 +150,9 @@ router.get('/customers', async (req, res) => {
 router.get('/customers/:id', async (req, res) => {
   try {
     const customer = await User.findById(req.params.id)
-      .select('-password')
-      .populate('activeCardDesign');
+      .select('_id name email loyaltyId esproCoins lifetimeEsproCoins createdAt activeCardDesign')
+      .populate('activeCardDesign', 'name imageUrl designType')
+      .lean();
 
     if (!customer || customer.isAdmin) {
       return res.status(404).json({
@@ -134,15 +161,18 @@ router.get('/customers/:id', async (req, res) => {
       });
     }
 
-    // Get customer's claims
+    // Get customer's claims - only select fields needed
     const claims = await Claim.find({ user: customer._id })
-      .populate('reward')
-      .sort({ claimedAt: -1 });
+      .select('_id voucherCode esproCoinsDeducted isUsed usedAt claimedAt reward awardedCardDesign')
+      .populate('reward', 'title imageUrl esproCoinsRequired')
+      .populate('awardedCardDesign', 'name imageUrl designType')
+      .sort({ claimedAt: -1 })
+      .lean();
 
     res.json({
       success: true,
       customer: {
-        ...customer.toObject(),
+        ...customer,
         claims,
       },
     });
@@ -553,7 +583,8 @@ router.get('/rewards', async (req, res) => {
 
     // Add voucher counts for each reward
     const rewardsWithCounts = rewards.map(reward => {
-      const rewardObj = reward.toObject();
+      // Convert to plain object if it's a Mongoose document, otherwise use as-is
+      const rewardObj = reward.toObject ? reward.toObject() : { ...reward };
       
       if (reward.voucherCodes && reward.voucherCodes.length > 0) {
         const totalVouchers = reward.voucherCodes.length;

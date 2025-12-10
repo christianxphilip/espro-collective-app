@@ -20,11 +20,12 @@ router.use(protect);
 router.get('/profile', async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
+      .select('_id name email loyaltyId esproCoins lifetimeEsproCoins isAdmin activeCardDesign unlockedCollectibles createdAt')
       .populate({
         path: 'activeCardDesign',
         select: 'name description imageUrl designType gradientColors solidColor textColor backCardColor backCardImageUrl',
       })
-      .select('-password');
+      .lean();
 
     res.json({
       success: true,
@@ -92,13 +93,14 @@ router.get('/rewards', async (req, res) => {
       });
     }
     
-    // Get all active rewards
+    // Get all active rewards - only select fields needed by frontend
     const allRewards = await Reward.find({ isActive: true })
-      .select('-voucherCodes -voucherCode') // Exclude voucher codes for security
+      .select('_id title description esproCoinsRequired imageUrl voucherImageUrl quantity claimableAtStore rewardType cardDesignIds isActive')
       .populate({
         path: 'cardDesignIds',
         select: 'name description imageUrl designType gradientColors solidColor textColor',
       })
+      .lean()
       .sort({ esproCoinsRequired: 1 });
 
     // Filter rewards: exclude rewards assigned to referral codes UNLESS user has that referral code
@@ -117,7 +119,8 @@ router.get('/rewards', async (req, res) => {
 
     // Add available count for rewards with voucher codes (without exposing the codes)
     const rewardsWithCount = await Promise.all(filteredRewards.map(async (reward) => {
-      const rewardObj = reward.toObject();
+      // reward is already a plain object from .lean(), so no need to call toObject()
+      const rewardObj = { ...reward };
       
       // Get the full reward to check voucher codes count (but don't expose codes)
       const fullReward = await Reward.findById(reward._id);
@@ -179,8 +182,11 @@ router.get('/collectibles', async (req, res) => {
       });
     }
     
-    // Get all active collectibles
-    const allCollectibles = await Collectible.find({ isActive: true }).sort({ lifetimeEsproCoinsRequired: 1 });
+    // Get all active collectibles - only select fields needed by frontend
+    const allCollectibles = await Collectible.find({ isActive: true })
+      .select('_id name description imageUrl mobileImageUrl designType gradientColors solidColor textColor backCardColor backCardImageUrl lifetimeEsproCoinsRequired isActive')
+      .lean()
+      .sort({ lifetimeEsproCoinsRequired: 1 });
 
     // Get user's unlocked collectibles (from unlockedCollectibles array)
     const userUnlockedCollectibles = user.unlockedCollectibles || [];
@@ -219,7 +225,7 @@ router.get('/collectibles', async (req, res) => {
       }
 
       return {
-        ...collectible.toObject(),
+        ...collectible,
         isUnlocked,
         isAvailableViaReferral,
       };
@@ -447,8 +453,9 @@ router.get('/points-history', async (req, res) => {
       })),
     });
     
-    // Query transactions - populate referenceId only when it exists
+    // Query transactions - only select fields needed by frontend
     const transactions = await PointsTransaction.find({ user: userObjectId })
+      .select('_id type amount description balanceAfter createdAt referenceId referenceType')
       .populate({
         path: 'referenceId',
         select: 'title name',
@@ -456,7 +463,8 @@ router.get('/points-history', async (req, res) => {
       })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     console.log('[Points History] Query result:', {
       transactionsFound: transactions.length,

@@ -12,7 +12,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative" style={{ minHeight: '100%' }}>
       {/* Header */}
       <div className="bg-transparent px-4 pt-4 pb-2">
         <div className="flex items-center gap-3 mb-2">

@@ -58,6 +58,10 @@ claimSchema.index({ user: 1, reward: 1, awardedCardDesign: 1 }, {
   partialFilterExpression: { awardedCardDesign: { $ne: null } }
 });
 
+// Additional indexes for efficient queries
+claimSchema.index({ user: 1, claimedAt: -1 }); // For user claim history
+claimSchema.index({ reward: 1, claimedAt: -1 }); // For reward analytics
+
 const Claim = mongoose.model('Claim', claimSchema);
 
 export default Claim;

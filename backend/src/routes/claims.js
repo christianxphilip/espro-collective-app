@@ -13,8 +13,11 @@ router.use(protect);
 router.get('/', async (req, res) => {
   try {
     const claims = await Claim.find({ user: req.user._id })
-      .populate('reward')
-      .sort({ claimedAt: -1 });
+      .select('_id voucherCode esproCoinsDeducted isUsed usedAt claimedAt awardedCardDesign reward')
+      .populate('reward', 'title imageUrl esproCoinsRequired')
+      .populate('awardedCardDesign', 'name imageUrl designType')
+      .sort({ claimedAt: -1 })
+      .lean();
 
     res.json({
       success: true,
@@ -67,18 +70,35 @@ router.get('/:id', async (req, res) => {
 router.use(requireAdmin);
 
 // @route   GET /api/claims/admin/all
-// @desc    Get all claims (admin)
+// @desc    Get all claims (admin) with pagination
 // @access  Private/Admin
 router.get('/admin/all', async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
     const claims = await Claim.find()
-      .populate('reward')
+      .select('_id voucherCode esproCoinsDeducted isUsed usedAt claimedAt reward user awardedCardDesign')
+      .populate('reward', 'title imageUrl esproCoinsRequired')
       .populate('user', 'name email loyaltyId')
-      .sort({ claimedAt: -1 });
+      .populate('awardedCardDesign', 'name imageUrl designType')
+      .sort({ claimedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await Claim.countDocuments();
 
     res.json({
       success: true,
       claims,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     res.status(500).json({

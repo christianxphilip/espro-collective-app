@@ -13,11 +13,13 @@ export default function Home() {
   const { data: promotions } = useQuery({
     queryKey: ['promotions'],
     queryFn: () => customerAPI.getPromotions().then((res) => res.data.promotions),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const { data: collectibles } = useQuery({
     queryKey: ['collectibles'],
     queryFn: () => customerAPI.getCollectibles().then((res) => res.data.collectibles),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
 

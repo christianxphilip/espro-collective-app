@@ -1021,7 +1021,8 @@ router.get('/', async (req, res) => {
 
     // Add voucher counts for each reward
     const rewardsWithCounts = rewards.map(reward => {
-      const rewardObj = reward.toObject();
+      // Convert to plain object if it's a Mongoose document, otherwise use as-is
+      const rewardObj = reward.toObject ? reward.toObject() : { ...reward };
       
       if (reward.voucherCodes && reward.voucherCodes.length > 0) {
         const totalVouchers = reward.voucherCodes.length;

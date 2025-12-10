@@ -1192,10 +1192,6 @@ export async function syncLoyaltyCards() {
         
         await fullUser.save();
         
-        // Check if user has transactions - if not and they have lifetimeEsproCoins, we'll create them
-        const existingTransactions = await PointsTransaction.countDocuments({ user: fullUser._id });
-        const needsRetroactiveTransaction = existingTransactions === 0 && fullUser.lifetimeEsproCoins > 0;
-        
         // Create transaction records from Odoo history if available
         // Only create records for "issued" (earned) points, not "used" points
         // "Used" points are tracked separately when customers redeem rewards in the app
@@ -1207,6 +1203,10 @@ export async function syncLoyaltyCards() {
               let transactionsCreated = 0;
               
               console.log(`[Odoo Sync] Processing ${historyData.history.length} history entries for ${odooLoyaltyId} (only issued points)`);
+              
+              // Prepare bulk operations for batch insert/update
+              const bulkOps = [];
+              const entryDates = []; // Store entry dates for fixing createdAt after bulk insert
               
               for (const entry of historyData.history) {
                 const issued = entry.issued ? parseFloat(entry.issued) : 0;
@@ -1223,55 +1223,62 @@ export async function syncLoyaltyCards() {
                 
                 // Only create transaction record for issued (earned) points
                 if (issued > 0) {
-                  // Use upsert to avoid duplicates - match by user, type, amount, and timestamp
-                  // Use setOnInsert to set createdAt only during insert (not update)
-                  const result = await PointsTransaction.findOneAndUpdate(
-                    {
-                      user: fullUser._id,
-                      type: 'earned',
-                      amount: issued,
-                      createdAt: {
-                        $gte: new Date(entryDate.getTime() - 60000), // Within 1 minute
-                        $lte: new Date(entryDate.getTime() + 60000),
-                      },
-                      referenceType: 'OdooSync',
-                    },
-                    {
-                      $set: {
+                  bulkOps.push({
+                    updateOne: {
+                      filter: {
                         user: fullUser._id,
                         type: 'earned',
                         amount: issued,
-                        description: entry.description || 'Points earned from purchase',
-                        referenceId: null,
+                        createdAt: {
+                          $gte: new Date(entryDate.getTime() - 60000), // Within 1 minute
+                          $lte: new Date(entryDate.getTime() + 60000),
+                        },
                         referenceType: 'OdooSync',
-                        balanceAfter: runningBalance, // Balance after this transaction
                       },
-                      $setOnInsert: {
-                        createdAt: entryDate, // Only set during insert
+                      update: {
+                        $set: {
+                          user: fullUser._id,
+                          type: 'earned',
+                          amount: issued,
+                          description: entry.description || 'Points earned from purchase',
+                          referenceId: null,
+                          referenceType: 'OdooSync',
+                          balanceAfter: runningBalance,
+                        },
+                        $setOnInsert: {
+                          createdAt: entryDate,
+                        },
                       },
-                    },
-                    {
                       upsert: true,
-                      new: true,
-                      setDefaultsOnInsert: true,
                     }
-                  );
-                  
-                  // If this was a new insert, manually update createdAt since Mongoose timestamps override it
-                  if (result.createdAt.getTime() !== entryDate.getTime()) {
-                    await PointsTransaction.findByIdAndUpdate(result._id, {
-                      createdAt: entryDate,
-                    }, { timestamps: false }); // Disable timestamps for this update
-                  }
-                  
+                  });
+                  entryDates.push(entryDate); // Store date for this operation
                   transactionsCreated++;
-                  console.log(`[Odoo Sync] Upserted earned transaction: ${issued} points for ${odooLoyaltyId} at ${entryDate.toISOString()}, balance after: ${runningBalance}`);
                 }
                 // Note: We skip creating records for "used" points from Odoo
                 // "Used" points are tracked when customers redeem rewards in the app
               }
               
-              console.log(`[Odoo Sync] Upserted ${transactionsCreated} earned transaction records from ${historyData.history.length} history entries for ${odooLoyaltyId}`);
+              // Execute bulk operations if any
+              if (bulkOps.length > 0) {
+                const result = await PointsTransaction.bulkWrite(bulkOps, { ordered: false });
+                
+                // Fix createdAt for newly inserted documents (Mongoose timestamps override setOnInsert)
+                if (result.upsertedCount > 0 && result.upsertedIds) {
+                  // Update createdAt for each upserted document
+                  const upsertedEntries = Object.entries(result.upsertedIds);
+                  for (const [index, id] of upsertedEntries) {
+                    const entryIndex = parseInt(index);
+                    if (entryDates[entryIndex]) {
+                      await PointsTransaction.findByIdAndUpdate(id, {
+                        createdAt: entryDates[entryIndex],
+                      }, { timestamps: false });
+                    }
+                  }
+                }
+              }
+              
+              console.log(`[Odoo Sync] Upserted ${transactionsCreated} earned transaction records from ${historyData.history.length} history entries for ${odooLoyaltyId} (batch operation)`);
           } catch (error) {
             console.error(`[Odoo Sync] Failed to create transaction records for ${odooLoyaltyId}:`, error.message);
             console.error(`[Odoo Sync] Error stack:`, error.stack);
@@ -1308,30 +1315,6 @@ export async function syncLoyaltyCards() {
             console.log(`[Odoo Sync] Created transaction for balance increase (no history): ${balanceDifference} points for user ${fullUser._id}`);
           } catch (error) {
             console.error(`[Odoo Sync] Failed to create transaction (no history):`, error.message);
-          }
-        }
-        
-        // If user has lifetimeEsproCoins but no transactions created yet, create retroactive transaction
-        // This handles cases where users have points but transactions weren't created during sync
-        if (needsRetroactiveTransaction) {
-          try {
-            // Re-check transactions count after potential creation above
-            const finalTransactionCount = await PointsTransaction.countDocuments({ user: fullUser._id });
-            if (finalTransactionCount === 0) {
-              await PointsTransaction.create({
-                user: fullUser._id,
-                type: 'earned',
-                amount: fullUser.lifetimeEsproCoins,
-                description: 'Points earned (retroactive)',
-                referenceId: null,
-                referenceType: 'OdooSync',
-                balanceAfter: points,
-                createdAt: fullUser.createdAt || new Date(),
-              });
-              console.log(`[Odoo Sync] Created retroactive transaction: ${fullUser.lifetimeEsproCoins} points for user ${fullUser._id} (lifetimeEsproCoins: ${fullUser.lifetimeEsproCoins}, no history available)`);
-            }
-          } catch (error) {
-            console.error(`[Odoo Sync] Failed to create retroactive transaction:`, error.message);
           }
         }
         

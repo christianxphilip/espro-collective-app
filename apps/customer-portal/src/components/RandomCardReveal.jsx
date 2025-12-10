@@ -20,16 +20,20 @@ export default function RandomCardReveal({
   const revealedIndexRef = useRef(-1); // Store the revealed card index
 
   useEffect(() => {
-    console.log('[RandomCardReveal] useEffect triggered:', {
-      isOpen,
-      cardDesignsLength: cardDesigns?.length,
-      revealedCardDesign: revealedCardDesign ? { _id: revealedCardDesign._id, name: revealedCardDesign.name } : null,
-      hasStarted: hasStartedRef.current
-    });
+    if (import.meta.env.DEV) {
+      console.log('[RandomCardReveal] useEffect triggered:', {
+        isOpen,
+        cardDesignsLength: cardDesigns?.length,
+        revealedCardDesign: revealedCardDesign ? { _id: revealedCardDesign._id, name: revealedCardDesign.name } : null,
+        hasStarted: hasStartedRef.current
+      });
+    }
     
     // Reset when modal closes
     if (!isOpen) {
-      console.log('[RandomCardReveal] Modal closed, resetting state');
+      if (import.meta.env.DEV) {
+        console.log('[RandomCardReveal] Modal closed, resetting state');
+      }
       hasStartedRef.current = false;
       revealedIndexRef.current = -1; // Reset revealed index
       setIsSpinning(false);
@@ -77,7 +81,8 @@ export default function RandomCardReveal({
       }
     }
     
-    console.log('[RandomCardReveal] Effective card designs:', {
+    if (import.meta.env.DEV) {
+      console.log('[RandomCardReveal] Effective card designs:', {
       effectiveCardDesignsLength: effectiveCardDesigns.length,
       effectiveCardDesigns: effectiveCardDesigns.map((c, idx) => ({ 
         index: idx,
@@ -93,24 +98,31 @@ export default function RandomCardReveal({
       revealedIndex: revealedIndexRef.current,
       revealedCardMatches: revealedCardDesign && revealedCardDesign._id ? 
         effectiveCardDesigns.findIndex(c => c && c._id && c._id.toString() === revealedCardDesign._id.toString()) : -1
-    });
+      });
+    }
     
     if (isOpen && effectiveCardDesigns.length > 0 && !hasStartedRef.current) {
-      console.log('[RandomCardReveal] Starting animation');
+      if (import.meta.env.DEV) {
+        console.log('[RandomCardReveal] Starting animation');
+      }
       hasStartedRef.current = true;
       setIsSpinning(true);
       setRevealed(false);
       
       // If we only have one card (the revealed one), skip animation and show it immediately
       if (effectiveCardDesigns.length === 1 && revealedCardDesign) {
-        console.log('[RandomCardReveal] Only one card, skipping animation');
+        if (import.meta.env.DEV) {
+          console.log('[RandomCardReveal] Only one card, skipping animation');
+        }
         setCurrentIndex(0);
         setIsSpinning(false);
         setRevealed(true);
         
         // Call onRevealComplete after a short delay
         const timeout = setTimeout(() => {
-          console.log('[RandomCardReveal] Single card reveal complete');
+          if (import.meta.env.DEV) {
+            console.log('[RandomCardReveal] Single card reveal complete');
+          }
           if (onRevealComplete) {
             onRevealComplete();
           }
@@ -121,17 +133,21 @@ export default function RandomCardReveal({
 
       // Validate that we have a valid revealed index
       if (revealedIndexRef.current === -1) {
-        console.error('[RandomCardReveal] CRITICAL: No valid revealed index found!', {
-          revealedCardDesign,
-          effectiveCardDesigns: effectiveCardDesigns.map(c => ({ id: c._id?.toString(), name: c.name }))
-        });
+        if (import.meta.env.DEV) {
+          console.error('[RandomCardReveal] CRITICAL: No valid revealed index found!', {
+            revealedCardDesign,
+            effectiveCardDesigns: effectiveCardDesigns.map(c => ({ id: c._id?.toString(), name: c.name }))
+          });
+        }
         // Try to find it one more time
         if (revealedCardDesign && revealedCardDesign._id) {
           const revealedId = revealedCardDesign._id.toString();
           const foundIndex = effectiveCardDesigns.findIndex(c => c && c._id && c._id.toString() === revealedId);
           if (foundIndex !== -1) {
             revealedIndexRef.current = foundIndex;
-            console.log('[RandomCardReveal] Found revealed index on retry:', foundIndex);
+            if (import.meta.env.DEV) {
+              console.log('[RandomCardReveal] Found revealed index on retry:', foundIndex);
+            }
           }
         }
       }
@@ -142,7 +158,9 @@ export default function RandomCardReveal({
       if (startIndex === revealedIndexRef.current && effectiveCardDesigns.length > 1) {
         startIndex = (startIndex + 1) % effectiveCardDesigns.length;
       }
-      console.log('[RandomCardReveal] Starting animation at index:', startIndex, 'Revealed index:', revealedIndexRef.current);
+      if (import.meta.env.DEV) {
+        console.log('[RandomCardReveal] Starting animation at index:', startIndex, 'Revealed index:', revealedIndexRef.current);
+      }
       setCurrentIndex(startIndex);
 
       // Spin through cards quickly
@@ -154,11 +172,15 @@ export default function RandomCardReveal({
       }, 100); // Change card every 100ms
       
       intervalsRef.current.push(spinInterval);
-      console.log('[RandomCardReveal] Fast spin interval started');
+      if (import.meta.env.DEV) {
+        console.log('[RandomCardReveal] Fast spin interval started');
+      }
 
       // After 2 seconds, slow down
       const timeout1 = setTimeout(() => {
-        console.log('[RandomCardReveal] Slowing down animation');
+        if (import.meta.env.DEV) {
+          console.log('[RandomCardReveal] Slowing down animation');
+        }
         // Find and clear the spin interval
         const spinIntervalToClear = intervalsRef.current.find(id => id === spinInterval);
         if (spinIntervalToClear) {
@@ -175,7 +197,9 @@ export default function RandomCardReveal({
 
         // After another 1 second, reveal the actual card
         const timeout2 = setTimeout(() => {
-          console.log('[RandomCardReveal] Revealing final card');
+          if (import.meta.env.DEV) {
+            console.log('[RandomCardReveal] Revealing final card');
+          }
           // Find and clear the slow spin interval
           const slowSpinIntervalToClear = intervalsRef.current.find(id => id === slowSpinInterval);
           if (slowSpinIntervalToClear) {
@@ -185,23 +209,29 @@ export default function RandomCardReveal({
           
           // Use the stored revealed index - this is the correct card to show
           const finalRevealedIndex = revealedIndexRef.current;
-          console.log('[RandomCardReveal] Revealed card index (from ref):', {
-            finalRevealedIndex,
-            revealedCardDesign: revealedCardDesign ? { id: revealedCardDesign._id?.toString(), name: revealedCardDesign.name } : null,
-            effectiveCardDesignsLength: effectiveCardDesigns.length,
-            cardAtRevealedIndex: finalRevealedIndex !== -1 ? effectiveCardDesigns[finalRevealedIndex] : null
-          });
+          if (import.meta.env.DEV) {
+            console.log('[RandomCardReveal] Revealed card index (from ref):', {
+              finalRevealedIndex,
+              revealedCardDesign: revealedCardDesign ? { id: revealedCardDesign._id?.toString(), name: revealedCardDesign.name } : null,
+              effectiveCardDesignsLength: effectiveCardDesigns.length,
+              cardAtRevealedIndex: finalRevealedIndex !== -1 ? effectiveCardDesigns[finalRevealedIndex] : null
+            });
+          }
           
           if (finalRevealedIndex !== -1 && finalRevealedIndex < effectiveCardDesigns.length) {
             setCurrentIndex(finalRevealedIndex);
-            console.log('[RandomCardReveal] Setting current index to revealed card:', {
-              index: finalRevealedIndex,
-              cardName: effectiveCardDesigns[finalRevealedIndex]?.name,
-              revealedCardName: revealedCardDesign?.name
-            });
+            if (import.meta.env.DEV) {
+              console.log('[RandomCardReveal] Setting current index to revealed card:', {
+                index: finalRevealedIndex,
+                cardName: effectiveCardDesigns[finalRevealedIndex]?.name,
+                revealedCardName: revealedCardDesign?.name
+              });
+            }
           } else {
             // Fallback: try to find it again
-            console.error('[RandomCardReveal] Invalid revealed index, trying to find card again');
+            if (import.meta.env.DEV) {
+              console.error('[RandomCardReveal] Invalid revealed index, trying to find card again');
+            }
             if (revealedCardDesign && revealedCardDesign._id) {
               const revealedId = revealedCardDesign._id.toString();
               const foundIndex = effectiveCardDesigns.findIndex(
@@ -214,9 +244,13 @@ export default function RandomCardReveal({
               if (foundIndex !== -1) {
                 setCurrentIndex(foundIndex);
                 revealedIndexRef.current = foundIndex;
-                console.log('[RandomCardReveal] Found and set revealed index:', foundIndex);
+                if (import.meta.env.DEV) {
+                  console.log('[RandomCardReveal] Found and set revealed index:', foundIndex);
+                }
               } else {
-                console.error('[RandomCardReveal] CRITICAL: Revealed card not found!');
+                if (import.meta.env.DEV) {
+                  console.error('[RandomCardReveal] CRITICAL: Revealed card not found!');
+                }
                 setCurrentIndex(0);
               }
             } else {
@@ -226,11 +260,15 @@ export default function RandomCardReveal({
           
           setIsSpinning(false);
           setRevealed(true);
-          console.log('[RandomCardReveal] Animation complete, card revealed at index:', finalRevealedIndex);
+          if (import.meta.env.DEV) {
+            console.log('[RandomCardReveal] Animation complete, card revealed at index:', finalRevealedIndex);
+          }
           
           // Call onRevealComplete after animation
           const timeout3 = setTimeout(() => {
-            console.log('[RandomCardReveal] Calling onRevealComplete');
+            if (import.meta.env.DEV) {
+              console.log('[RandomCardReveal] Calling onRevealComplete');
+            }
             if (onRevealComplete) {
               onRevealComplete();
             }
@@ -244,11 +282,13 @@ export default function RandomCardReveal({
       
       timeoutsRef.current.push(timeout1);
     } else {
-      console.log('[RandomCardReveal] Not starting animation:', {
-        isOpen,
-        effectiveCardDesignsLength: effectiveCardDesigns.length,
-        hasStarted: hasStartedRef.current
-      });
+      if (import.meta.env.DEV) {
+        console.log('[RandomCardReveal] Not starting animation:', {
+          isOpen,
+          effectiveCardDesignsLength: effectiveCardDesigns.length,
+          hasStarted: hasStartedRef.current
+        });
+      }
     }
 
     // Cleanup function - only clear if modal is closing
@@ -286,21 +326,25 @@ export default function RandomCardReveal({
     effectiveCardDesigns = [revealedCardDesign];
   }
 
-  console.log('[RandomCardReveal] Render:', {
-    isOpen,
-    effectiveCardDesignsLength: effectiveCardDesigns.length,
-    currentIndex,
-    isSpinning,
-    revealed,
-    hasStarted: hasStartedRef.current,
-    revealedCardDesignId: revealedCardDesign?._id,
-    currentCardId: effectiveCardDesigns[currentIndex]?._id
-  });
+  if (import.meta.env.DEV) {
+    console.log('[RandomCardReveal] Render:', {
+      isOpen,
+      effectiveCardDesignsLength: effectiveCardDesigns.length,
+      currentIndex,
+      isSpinning,
+      revealed,
+      hasStarted: hasStartedRef.current,
+      revealedCardDesignId: revealedCardDesign?._id,
+      currentCardId: effectiveCardDesigns[currentIndex]?._id
+    });
+  }
 
   if (!isOpen) return null;
 
   if (effectiveCardDesigns.length === 0) {
-    console.log('[RandomCardReveal] No card designs available, showing loading');
+    if (import.meta.env.DEV) {
+      console.log('[RandomCardReveal] No card designs available, showing loading');
+    }
     // Show loading state if we don't have card designs yet
     return (
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -321,7 +365,7 @@ export default function RandomCardReveal({
   const currentCard = effectiveCardDesigns[currentIndex] || effectiveCardDesigns[0];
   
   // Debug: Log which card is being displayed
-  if (revealed && revealedCardDesign) {
+  if (revealed && revealedCardDesign && import.meta.env.DEV) {
     const isShowingRevealedCard = currentCard && currentCard._id && revealedCardDesign._id && 
       currentCard._id.toString() === revealedCardDesign._id.toString();
     console.log('[RandomCardReveal] Render - Current card:', {

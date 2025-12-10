@@ -29,13 +29,18 @@ export default function Collections() {
     queryFn: async () => {
       try {
         const res = await customerAPI.getCollectibles();
-        console.log('[Collections] API Response:', res.data);
+        if (import.meta.env.DEV) {
+          console.log('[Collections] API Response:', res.data);
+        }
         return res.data.collectibles || [];
       } catch (err) {
-        console.error('[Collections] API Error:', err);
+        if (import.meta.env.DEV) {
+          console.error('[Collections] API Error:', err);
+        }
         throw err;
       }
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const activateMutation = useMutation({

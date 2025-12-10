@@ -11,6 +11,7 @@ export default function Promotions() {
   const { data: promotions, isLoading } = useQuery({
     queryKey: ['promotions'],
     queryFn: () => customerAPI.getPromotions().then((res) => res.data.promotions),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Pull to refresh
