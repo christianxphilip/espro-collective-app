@@ -39,18 +39,16 @@ const app = express();
 // Connect to MongoDB (will be awaited before server starts)
 let dbConnected = false;
 
-// Configure allowed origins for CORS
+// Configure allowed origins for CORS from environment variables
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   process.env.ADMIN_URL || 'http://localhost:5174',
   // Production URLs (if set)
   process.env.CUSTOMER_PORTAL_URL,
   process.env.ADMIN_PORTAL_URL,
-].filter(Boolean); // Remove undefined values
-
-// Add localhost variants for development and Docker
-// Always include common localhost ports for local development
-allowedOrigins.push(
+  // Support CORS_ORIGINS environment variable (comma-separated list)
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()) : []),
+  // Always include common localhost ports for local development
   'http://localhost:5173', // Vite dev server - customer portal
   'http://localhost:5174', // Vite dev server - admin portal
   'http://localhost:8080', // Docker - customer portal
@@ -60,11 +58,14 @@ allowedOrigins.push(
   'http://127.0.0.1:5174',
   'http://127.0.0.1:8080',
   'http://127.0.0.1:8081',
-  'http://127.0.0.1:8000' // Backend port (for direct image access)
-);
+  'http://127.0.0.1:8000', // Backend port (for direct image access)
+].filter(Boolean); // Remove undefined values
+
+// Deduplicate origins
+const uniqueOrigins = [...new Set(allowedOrigins)];
 
 // Log allowed origins on startup (for debugging)
-console.log('[Server] CORS allowed origins:', allowedOrigins);
+console.log('[Server] CORS allowed origins:', uniqueOrigins);
 
 // Ensure upload directories exist
 const uploadDirs = [
@@ -113,7 +114,7 @@ app.use(cors({
     const normalizedOrigin = origin.replace(/\/$/, '');
     
     // Check if origin is in allowed list
-    const isAllowed = allowedOrigins.some(allowed => {
+    const isAllowed = uniqueOrigins.some(allowed => {
       const normalizedAllowed = allowed.replace(/\/$/, '');
       return normalizedOrigin === normalizedAllowed;
     });
@@ -123,7 +124,7 @@ app.use(cors({
     } else {
       // Log the blocked origin for debugging
       console.warn(`[CORS] Blocked origin: ${normalizedOrigin}`);
-      console.warn(`[CORS] Allowed origins:`, allowedOrigins);
+      console.warn(`[CORS] Allowed origins:`, uniqueOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },

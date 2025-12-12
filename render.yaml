@@ -33,6 +33,11 @@ services:
         value: https://espro-customer-portal.onrender.com
       - key: ADMIN_URL
         value: https://espro-admin-portal.onrender.com
+      # CORS Origins - comma-separated list of additional allowed origins (beyond FRONTEND_URL and ADMIN_URL)
+      # The system automatically includes FRONTEND_URL, ADMIN_URL, CUSTOMER_PORTAL_URL, and ADMIN_PORTAL_URL
+      # Use this for additional origins if needed
+      # - key: CORS_ORIGINS
+      #   value: https://example.com,https://another-domain.com
       # AWS S3 credentials - Add these manually in Render dashboard for security
       # - key: AWS_ACCESS_KEY_ID
       #   value: your-access-key-id

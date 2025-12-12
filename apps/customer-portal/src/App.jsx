@@ -14,6 +14,7 @@ import MyVouchers from './pages/MyVouchers';
 import PointsHistory from './pages/PointsHistory';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import ScrollToTop from './components/ScrollToTop';
 
 function PrivateRoute({ children }) {
   const { user, token, fetchUser } = useAuthStore();
@@ -62,6 +63,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <div className="mobile-container">
         <Routes>
           <Route path="/login" element={<Login />} />

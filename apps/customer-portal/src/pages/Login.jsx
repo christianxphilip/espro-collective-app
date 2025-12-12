@@ -39,6 +39,10 @@ export default function Login() {
     setLoading(false);
 
     if (result.success) {
+      // Scroll to top before navigation
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
       navigate('/');
     }
   };

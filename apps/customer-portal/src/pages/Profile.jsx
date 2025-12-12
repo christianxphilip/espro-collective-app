@@ -1,10 +1,19 @@
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { formatEsproCoinsDisplay } from '../utils/format';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 export default function Profile() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, fetchUser } = useAuthStore();
   const navigate = useNavigate();
+
+  // Pull to refresh
+  const { isRefreshing } = usePullToRefresh(
+    [], // No specific query keys, just refresh user data
+    async () => {
+      await fetchUser();
+    }
+  );
 
   const handleLogout = () => {
     logout();
